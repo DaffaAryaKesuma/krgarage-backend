@@ -36,7 +36,8 @@ class VespaController extends Controller
         $dataTervalidasi = $request->validate([
             'model'          => 'required|string|max:255',
             'tahun_produksi' => 'required|integer',
-            'plat_nomor'     => 'required|string|max:20|unique:vespas',
+            // Perbaikan: gunakan nama tabel 'vespa' (bukan 'vespas') 
+            'plat_nomor'     => 'required|string|max:20|unique:vespa',
         ]);
 
         // Membuat vespa baru dan langsung menghubungkannya dengan pengguna yang login
@@ -61,8 +62,8 @@ class VespaController extends Controller
         $dataTervalidasi = $request->validate([
             'model'          => 'required|string|max:255',
             'tahun_produksi' => 'required|integer',
-            // Pastikan plat_nomor unik, kecuali untuk vespa yang sedang diedit
-            'plat_nomor'     => ['required', 'string', 'max:20', Rule::unique('vespas')->ignore($vespa->id)],
+            // Pastikan plat_nomor unik, menggunakan database 'vespa'
+            'plat_nomor'     => ['required', 'string', 'max:20', Rule::unique('vespa')->ignore($vespa->id)],
         ]);
 
         $vespa->update($dataTervalidasi);
