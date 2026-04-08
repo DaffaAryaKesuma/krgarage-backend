@@ -8,6 +8,8 @@ use App\Models\Notification;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Mail\BookingConfirmedMail;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -102,6 +104,15 @@ class BookingController extends Controller
         // Kirim notifikasi ke semua admin tentang pemesanan baru
         $this->layananNotifikasi->notifikasiAdminPemesananBaru($pemesanan, $request->user());
 
+        // Kirim email konfirmasi ke pelanggan
+        try {
+            $pemesanan->load('pengguna', 'vespa', 'layanan');
+            Mail::to($request->user()->email)->send(new BookingConfirmedMail($pemesanan));
+        } catch (\Exception $e) {
+            // Abaikan error agar proses booking tidak gagal jika server email error
+            \Log::error('Gagal mengirim email: ' . $e->getMessage());
+        }
+
         return response()->json([
             'message' => 'Pemesanan servis berhasil dibuat!',
             'data'    => $pemesanan->load('layanan'),
@@ -146,6 +157,7 @@ class BookingController extends Controller
 
         // Kirim notifikasi ke semua admin tentang pembatalan
         $daftarAdmin = User::admin()->get();
+
         foreach ($daftarAdmin as $admin) {
             $this->layananNotifikasi->buatNotifikasi(
                 $admin->id,

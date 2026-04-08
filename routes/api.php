@@ -19,13 +19,8 @@ use App\Http\Controllers\Api\Owner\OwnerController;
 Route::post('/register', [AuthController::class, 'daftar']);
 Route::post('/login', [AuthController::class, 'masuk']);
 Route::get('/services', [ServiceController::class, 'index']);
-Route::get('/services/{service}', [ServiceController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
     // Rute untuk vespa milik pelanggan
     Route::get('/my-vespas', [VespaController::class, 'index']);
     Route::post('/my-vespas', [VespaController::class, 'store']);
@@ -57,14 +52,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 
     Route::get('/dashboard/stats', [AdminDashboardController::class, 'statistik']);
     Route::get('/dashboard/recent-bookings', [AdminDashboardController::class, 'pemesananTerbaru']);
-    Route::get('/dashboard/overview', [AdminDashboardController::class, 'ringkasan']);
 
     // Rute untuk laporan keuangan
     Route::get('/reports/financial', [AdminFinancialReportController::class, 'index']);
 
     // Rute untuk manajemen inventori (suku cadang)
     Route::get('/inventory', [AdminSparepartController::class, 'index']);
-    Route::get('/inventory/available', [AdminSparepartController::class, 'daftarSukuCadangTersedia']);
     Route::get('/inventory/low-stock', [AdminSparepartController::class, 'peringatanStokMenipis']);
     Route::post('/inventory', [AdminSparepartController::class, 'store']);
     Route::get('/inventory/{sukuCadang}', [AdminSparepartController::class, 'show']);
@@ -84,9 +77,6 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 // Rute untuk mekanik
 Route::middleware(['auth:sanctum', 'role:mekanik'])->prefix('mechanic')->group(function () {
     Route::get('/bookings', [MechanicDashboardController::class, 'index']);
-    Route::get('/bookings/{pemesanan}', [MechanicDashboardController::class, 'show']);
-    Route::get('/dashboard', [MechanicDashboardController::class, 'index']);
-    Route::get('/history', [MechanicDashboardController::class, 'riwayat']);
     Route::put('/bookings/{pemesanan}/status', [MechanicDashboardController::class, 'updateStatus']);
     Route::post('/bookings/{pemesanan}/add-sparepart', [MechanicDashboardController::class, 'tambahSukuCadang']);
     Route::delete('/bookings/{pemesanan}/items/{itemPemesanan}', [MechanicDashboardController::class, 'hapusSukuCadang']);

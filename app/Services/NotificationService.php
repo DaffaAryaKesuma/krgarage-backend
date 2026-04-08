@@ -5,9 +5,28 @@ namespace App\Services;
 use App\Models\Notification;
 use App\Models\Booking;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\BookingStatusUpdateMail;
 
 class NotificationService
 {
+    /**
+     * Kirim email pembaruan status ke pelanggan
+     */
+    private function kirimEmailStatusUpdate(Booking $pemesanan, string $judul, string $pesan): void
+    {
+        try {
+            // Pastikan relasi yang dibutuhkan untuk email dimuat
+            $pemesanan->loadMissing('pengguna', 'vespa');
+            
+            if ($pemesanan->pengguna && $pemesanan->pengguna->email) {
+                Mail::to($pemesanan->pengguna->email)->send(new BookingStatusUpdateMail($pemesanan, $judul, $pesan));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengirim email status update: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Buat notifikasi untuk pengguna tertentu.
      */
@@ -34,13 +53,18 @@ class NotificationService
      */
     public function notifikasiPemesananSelesai(Booking $pemesanan): void
     {
+        $judul = 'Servis Selesai';
+        $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah selesai. Terima kasih telah menggunakan layanan KRGarage!";
+        
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
             'booking_completed',
-            'Servis Selesai',
-            "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah selesai. Terima kasih telah menggunakan layanan KRGarage!",
+            $judul,
+            $pesan,
             $pemesanan->id
         );
+
+        $this->kirimEmailStatusUpdate($pemesanan, $judul, $pesan);
     }
 
     /**
@@ -48,13 +72,18 @@ class NotificationService
      */
     public function notifikasiPemesananDikonfirmasi(Booking $pemesanan): void
     {
+        $judul = 'Pemesanan Dikonfirmasi';
+        $pesan = "Pemesanan {$pemesanan->kode_pemesanan} telah dikonfirmasi. Silakan datang ke bengkel untuk mengantar Vespa Anda.";
+
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
             'booking_confirmed',
-            'Pemesanan Dikonfirmasi',
-            "Pemesanan {$pemesanan->kode_pemesanan} telah dikonfirmasi. Silakan datang ke bengkel untuk mengantar Vespa Anda.",
+            $judul,
+            $pesan,
             $pemesanan->id
         );
+
+        $this->kirimEmailStatusUpdate($pemesanan, $judul, $pesan);
     }
 
     /**
@@ -62,13 +91,18 @@ class NotificationService
      */
     public function notifikasiPemesananDiproses(Booking $pemesanan): void
     {
+        $judul = 'Servis Dimulai';
+        $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah dimulai dan sedang dikerjakan oleh mekanik kami.";
+
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
             'booking_in_progress',
-            'Servis Dimulai',
-            "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah dimulai.",
+            $judul,
+            $pesan,
             $pemesanan->id
         );
+
+        $this->kirimEmailStatusUpdate($pemesanan, $judul, $pesan);
     }
 
     /**
@@ -76,13 +110,18 @@ class NotificationService
      */
     public function notifikasiPemesananDibatalkan(Booking $pemesanan): void
     {
+        $judul = 'Pemesanan Dibatalkan';
+        $pesan = "Pemesanan {$pemesanan->kode_pemesanan} telah dibatalkan.";
+
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
             'booking_cancelled',
-            'Pemesanan Dibatalkan',
-            "Pemesanan {$pemesanan->kode_pemesanan} telah dibatalkan.",
+            $judul,
+            $pesan,
             $pemesanan->id
         );
+
+        $this->kirimEmailStatusUpdate($pemesanan, $judul, $pesan);
     }
 
     /**
@@ -92,12 +131,16 @@ class NotificationService
     {
         $daftarAdmin = User::admin()->get();
 
+        $namaPelanggan = $pelanggan->nama;
+        // Opsional: Hilangkan kata "pelanggan" jika pengguna kebetulan menulis namanya "pelanggan daffa" dsb
+        $namaPelanggan = trim(str_ireplace('pelanggan', '', $namaPelanggan));
+
         foreach ($daftarAdmin as $admin) {
             $this->buatNotifikasi(
                 $admin->id,
                 'booking_confirmed',
                 'Pemesanan Baru',
-                "Pemesanan baru #{$pemesanan->kode_pemesanan} dari {$pelanggan->nama}.",
+                "Pemesanan baru #{$pemesanan->kode_pemesanan} dari {$namaPelanggan}.",
                 $pemesanan->id,
                 false
             );
