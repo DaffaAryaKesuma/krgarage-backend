@@ -16,80 +16,80 @@ use App\Http\Controllers\Api\Mechanic\MechanicDashboardController;
 use App\Http\Controllers\Api\Owner\OwnerController;
 
 // Rute publik: registrasi dan login
-Route::post('/register', [AuthController::class, 'daftar']);
-Route::post('/login', [AuthController::class, 'masuk']);
-Route::get('/services', [ServiceController::class, 'index']);
+Route::post('/daftar', [AuthController::class, 'daftar']);
+Route::post('/masuk', [AuthController::class, 'masuk']);
+Route::get('/layanan', [ServiceController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Rute untuk vespa milik pelanggan
-    Route::get('/my-vespas', [VespaController::class, 'index']);
-    Route::post('/my-vespas', [VespaController::class, 'store']);
-    Route::put('/my-vespas/{vespa}', [VespaController::class, 'update']);
-    Route::delete('/my-vespas/{vespa}', [VespaController::class, 'destroy']);
-    Route::get('/vespas/due-service', [VespaController::class, 'perluServis']);
+    Route::get('/vespa-saya', [VespaController::class, 'index']);
+    Route::post('/vespa-saya', [VespaController::class, 'store']);
+    Route::put('/vespa-saya/{vespa}', [VespaController::class, 'update']);
+    Route::delete('/vespa-saya/{vespa}', [VespaController::class, 'destroy']);
+    Route::get('/vespa-saya/perlu-servis', [VespaController::class, 'perluServis']);
 
     // Rute untuk pemesanan pelanggan
-    Route::get('/bookings', [BookingController::class, 'index']);
-    Route::get('/bookings/check-slots', [BookingController::class, 'cekSlot']);
-    Route::post('/bookings', [BookingController::class, 'store']);
-    Route::post('/bookings/{pemesanan}/cancel', [BookingController::class, 'batalkan']);
+    Route::get('/pemesanan', [BookingController::class, 'index']);
+    Route::get('/pemesanan/cek-slot', [BookingController::class, 'cekSlot']);
+    Route::post('/pemesanan', [BookingController::class, 'store']);
+    Route::post('/pemesanan/{pemesanan}/batalkan', [BookingController::class, 'batalkan']);
 
     // Rute untuk notifikasi
-    Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::post('/notifications/{id}/mark-read', [NotificationController::class, 'tandaiDibaca']);
-    Route::post('/notifications/mark-all-read', [NotificationController::class, 'tandaiSemuaDibaca']);
+    Route::get('/notifikasi', [NotificationController::class, 'index']);
+    Route::post('/notifikasi/{id}/tandai-dibaca', [NotificationController::class, 'tandaiDibaca']);
+    Route::post('/notifikasi/tandai-semua-dibaca', [NotificationController::class, 'tandaiSemuaDibaca']);
 });
 
 // Rute untuk admin
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
-    Route::get('/bookings', [AdminBookingController::class, 'index']);
-    Route::get('/bookings/{pemesanan}', [AdminBookingController::class, 'show']);
-    Route::patch('/bookings/{pemesanan}/status', [AdminBookingController::class, 'updateStatus']);
+    Route::get('/pemesanan', [AdminBookingController::class, 'index']);
+    Route::get('/pemesanan/{pemesanan}', [AdminBookingController::class, 'show']);
+    Route::patch('/pemesanan/{pemesanan}/status', [AdminBookingController::class, 'updateStatus']);
 
-    Route::post('/services', [AdminServiceController::class, 'store']);
-    Route::put('/services/{service}', [AdminServiceController::class, 'update']);
-    Route::delete('/services/{service}', [AdminServiceController::class, 'destroy']);
+    Route::post('/layanan', [AdminServiceController::class, 'store']);
+    Route::put('/layanan/{service}', [AdminServiceController::class, 'update']);
+    Route::delete('/layanan/{service}', [AdminServiceController::class, 'destroy']);
 
-    Route::get('/dashboard/stats', [AdminDashboardController::class, 'statistik']);
-    Route::get('/dashboard/recent-bookings', [AdminDashboardController::class, 'pemesananTerbaru']);
+    Route::get('/dashboard/statistik', [AdminDashboardController::class, 'statistik']);
+    Route::get('/dashboard/pemesanan-terbaru', [AdminDashboardController::class, 'pemesananTerbaru']);
 
     // Rute untuk laporan keuangan
-    Route::get('/reports/financial', [AdminFinancialReportController::class, 'index']);
+    Route::get('/laporan/keuangan', [AdminFinancialReportController::class, 'index']);
 
     // Rute untuk manajemen inventori (suku cadang)
-    Route::get('/inventory', [AdminSparepartController::class, 'index']);
-    Route::get('/inventory/low-stock', [AdminSparepartController::class, 'peringatanStokMenipis']);
-    Route::post('/inventory', [AdminSparepartController::class, 'store']);
-    Route::get('/inventory/{sukuCadang}', [AdminSparepartController::class, 'show']);
-    Route::put('/inventory/{sukuCadang}', [AdminSparepartController::class, 'update']);
-    Route::delete('/inventory/{sukuCadang}', [AdminSparepartController::class, 'destroy']);
-    Route::post('/inventory/{sukuCadang}/restock', [AdminSparepartController::class, 'tambahStok']);
+    Route::get('/inventori', [AdminSparepartController::class, 'index']);
+    Route::get('/inventori/stok-menipis', [AdminSparepartController::class, 'peringatanStokMenipis']);
+    Route::post('/inventori', [AdminSparepartController::class, 'store']);
+    Route::get('/inventori/{sukuCadang}', [AdminSparepartController::class, 'show']);
+    Route::put('/inventori/{sukuCadang}', [AdminSparepartController::class, 'update']);
+    Route::delete('/inventori/{sukuCadang}', [AdminSparepartController::class, 'destroy']);
+    Route::post('/inventori/{sukuCadang}/tambah-stok', [AdminSparepartController::class, 'tambahStok']);
 
     // Rute untuk suku cadang pada pemesanan
-    Route::post('/bookings/{pemesanan}/add-sparepart', [AdminBookingController::class, 'tambahSukuCadang']);
-    Route::delete('/bookings/{pemesanan}/items/{idItemPemesanan}', [AdminBookingController::class, 'hapusSukuCadang']);
+    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [AdminBookingController::class, 'tambahSukuCadang']);
+    Route::delete('/pemesanan/{pemesanan}/item/{idItemPemesanan}', [AdminBookingController::class, 'hapusSukuCadang']);
 
     // Rute untuk penugasan mekanik
-    Route::get('/mechanics', [AdminBookingController::class, 'daftarMekanik']);
-    Route::patch('/bookings/{pemesanan}/assign-mechanic', [AdminBookingController::class, 'tugaskanMekanik']);
+    Route::get('/mekanik', [AdminBookingController::class, 'daftarMekanik']);
+    Route::patch('/pemesanan/{pemesanan}/tugaskan-mekanik', [AdminBookingController::class, 'tugaskanMekanik']);
 });
 
 // Rute untuk mekanik
-Route::middleware(['auth:sanctum', 'role:mekanik'])->prefix('mechanic')->group(function () {
-    Route::get('/bookings', [MechanicDashboardController::class, 'index']);
-    Route::put('/bookings/{pemesanan}/status', [MechanicDashboardController::class, 'updateStatus']);
-    Route::post('/bookings/{pemesanan}/add-sparepart', [MechanicDashboardController::class, 'tambahSukuCadang']);
-    Route::delete('/bookings/{pemesanan}/items/{itemPemesanan}', [MechanicDashboardController::class, 'hapusSukuCadang']);
-    Route::get('/spareparts', [MechanicDashboardController::class, 'daftarSukuCadangTersedia']);
+Route::middleware(['auth:sanctum', 'role:mekanik'])->prefix('mekanik')->group(function () {
+    Route::get('/pemesanan', [MechanicDashboardController::class, 'index']);
+    Route::put('/pemesanan/{pemesanan}/status', [MechanicDashboardController::class, 'updateStatus']);
+    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [MechanicDashboardController::class, 'tambahSukuCadang']);
+    Route::delete('/pemesanan/{pemesanan}/item/{itemPemesanan}', [MechanicDashboardController::class, 'hapusSukuCadang']);
+    Route::get('/suku-cadang', [MechanicDashboardController::class, 'daftarSukuCadangTersedia']);
 });
 
 // Rute untuk owner (monitoring)
-Route::middleware(['auth:sanctum', 'role:owner'])->prefix('owner')->group(function () {
-    Route::get('/stats', [OwnerController::class, 'statistik']);
-    Route::get('/recent-bookings', [OwnerController::class, 'pemesananTerbaru']);
-    Route::get('/revenue-trend', [OwnerController::class, 'trenPendapatan']);
-    Route::get('/transactions', [OwnerController::class, 'transaksi']);
-    Route::get('/top-services', [OwnerController::class, 'layananTerpopuler']);
-    Route::get('/top-spareparts', [OwnerController::class, 'sukuCadangTerlaris']);
-    Route::get('/low-stock', [OwnerController::class, 'stokMenipis']);
+Route::middleware(['auth:sanctum', 'role:owner'])->prefix('pemilik')->group(function () {
+    Route::get('/statistik', [OwnerController::class, 'statistik']);
+    Route::get('/pemesanan-terbaru', [OwnerController::class, 'pemesananTerbaru']);
+    Route::get('/tren-pendapatan', [OwnerController::class, 'trenPendapatan']);
+    Route::get('/transaksi', [OwnerController::class, 'transaksi']);
+    Route::get('/layanan-terpopuler', [OwnerController::class, 'layananTerpopuler']);
+    Route::get('/suku-cadang-terlaris', [OwnerController::class, 'sukuCadangTerlaris']);
+    Route::get('/stok-menipis', [OwnerController::class, 'stokMenipis']);
 });
