@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -15,9 +16,11 @@ class AuthController extends Controller
      */
     public function daftar(Request $request)
     {
+        $tabelPengguna = (new User())->getTable();
+
         $dataTervalidasi = $request->validate([
             'nama'       => 'required|string|max:255',
-            'email'      => 'nullable|string|email|max:255',
+            'email'      => ['nullable', 'string', 'email', 'max:255', Rule::unique($tabelPengguna, 'email')],
             'no_telepon' => 'required|string|max:20',
             'password'   => 'required|string|min:8',
         ]);
@@ -80,6 +83,22 @@ class AuthController extends Controller
                 'role'       => $pengguna->role,
                 'no_telepon' => $pengguna->no_telepon,
             ],
+        ]);
+    }
+
+    /**
+     * Logout pengguna yang sedang login.
+     */
+    public function keluar(Request $request)
+    {
+        $pengguna = $request->user();
+
+        if ($pengguna && $pengguna->currentAccessToken()) {
+            $pengguna->currentAccessToken()->delete();
+        }
+
+        return response()->json([
+            'message' => 'Logout berhasil.',
         ]);
     }
 }

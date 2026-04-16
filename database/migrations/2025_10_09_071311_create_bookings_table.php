@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
             $table->string('kode_pemesanan')->unique();
-            $table->foreignId('id_pengguna')->constrained()->onDelete('cascade');
-            $table->foreignId('id_vespa')->constrained()->onDelete('cascade');
+            $table->foreignId('id_pengguna')->constrained('users')->onDelete('cascade');
+            $table->foreignId('id_vespa')->constrained('vespas')->onDelete('cascade');
             $table->foreignId('service_id')->constrained()->onDelete('cascade');
             $table->date('tanggal_pemesanan');
-            $table->time('booking_time');
+            $table->time('booking_time')->nullable();
             $table->string('status')->default('Pending');
             $table->text('catatan_pelanggan')->nullable();
             $table->timestamps();

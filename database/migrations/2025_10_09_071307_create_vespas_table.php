@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('vespas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_pengguna')->constrained()->onDelete('cascade');
+            $table->foreignId('id_pengguna')->constrained('users')->onDelete('cascade');
             $table->string('model');
             $table->integer('tahun_produksi');
             $table->string('plat_nomor')->unique();

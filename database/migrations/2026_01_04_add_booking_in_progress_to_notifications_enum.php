@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Modify ENUM to add 'booking_in_progress' value
         DB::statement("
             ALTER TABLE notifications 
@@ -29,6 +33,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Remove 'booking_in_progress' from ENUM
         // First, delete any records with this type to prevent data loss errors
         DB::statement("DELETE FROM notifications WHERE type = 'booking_in_progress'");

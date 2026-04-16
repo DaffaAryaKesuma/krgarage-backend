@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->string('booking_time')->after('tanggal_pemesanan'); // Format: "09:00", "10:00"
-        });
+        if (!Schema::hasColumn('bookings', 'booking_time')) {
+            Schema::table('bookings', function (Blueprint $table) {
+                $table->string('booking_time')->after('tanggal_pemesanan'); // Format: "09:00", "10:00"
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->dropColumn('booking_time');
-        });
+        if (Schema::hasColumn('bookings', 'booking_time')) {
+            Schema::table('bookings', function (Blueprint $table) {
+                $table->dropColumn('booking_time');
+            });
+        }
     }
 };

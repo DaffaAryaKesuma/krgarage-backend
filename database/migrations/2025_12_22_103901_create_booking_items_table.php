@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('booking_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('booking_id')->constrained()->onDelete('cascade');
-            $table->foreignId('id_suku_cadang')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('booking_id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('id_suku_cadang')->nullable()->constrained('spareparts')->onDelete('set null');
             $table->integer('quantity')->default(1);
             $table->decimal('harga_saat_ini', 10, 2); // Historical pricing
             $table->enum('item_type', ['service', 'sparepart'])->default('sparepart');

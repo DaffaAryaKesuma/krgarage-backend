@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE notifications MODIFY COLUMN type ENUM('booking_confirmed', 'booking_in_progress', 'booking_completed', 'booking_cancelled', 'booking_assigned', 'low_stock') NOT NULL");
     }
 
@@ -20,6 +24,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE notifications MODIFY COLUMN type ENUM('booking_confirmed', 'booking_in_progress', 'booking_completed', 'booking_cancelled') NOT NULL");
     }
 };

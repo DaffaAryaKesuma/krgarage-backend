@@ -55,12 +55,51 @@ class AdminBookingController extends Controller
             'status' => 'required|string|in:Pending,Confirmed,In Progress,Completed,Cancelled',
         ]);
 
+        $statusBaru = $dataTervalidasi['status'];
         $statusLama = $pemesanan->status;
-        $pemesanan->status = $dataTervalidasi['status'];
+
+        if ($statusLama === $statusBaru) {
+            return response()->json([
+                'message'   => 'Status pemesanan sudah berada pada nilai yang sama.',
+                'pemesanan' => $pemesanan,
+            ]);
+        }
+
+        if (in_array($statusLama, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
+            return response()->json([
+                'message' => 'Status pemesanan yang sudah selesai atau dibatalkan tidak dapat diubah lagi.',
+            ], 400);
+        }
+
+        $transisiValid = [
+            Booking::STATUS_PENDING => [
+                Booking::STATUS_CONFIRMED,
+                Booking::STATUS_IN_PROGRESS,
+                Booking::STATUS_COMPLETED,
+                Booking::STATUS_CANCELLED,
+            ],
+            Booking::STATUS_CONFIRMED => [
+                Booking::STATUS_IN_PROGRESS,
+                Booking::STATUS_COMPLETED,
+                Booking::STATUS_CANCELLED,
+            ],
+            Booking::STATUS_IN_PROGRESS => [
+                Booking::STATUS_COMPLETED,
+                Booking::STATUS_CANCELLED,
+            ],
+        ];
+
+        if (!isset($transisiValid[$statusLama]) || !in_array($statusBaru, $transisiValid[$statusLama], true)) {
+            return response()->json([
+                'message' => "Transisi status dari {$statusLama} ke {$statusBaru} tidak diperbolehkan.",
+            ], 400);
+        }
+
+        $pemesanan->status = $statusBaru;
         $pemesanan->save();
 
         // Trigger notifikasi berdasarkan status baru
-        if ($dataTervalidasi['status'] === Booking::STATUS_COMPLETED) {
+        if ($statusBaru === Booking::STATUS_COMPLETED && $statusLama !== Booking::STATUS_COMPLETED) {
             // Kurangi stok suku cadang saat pemesanan selesai
             $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
 
@@ -71,11 +110,11 @@ class AdminBookingController extends Controller
 
             // Buat notifikasi
             $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
-        } elseif ($dataTervalidasi['status'] === Booking::STATUS_CONFIRMED && $statusLama === Booking::STATUS_PENDING) {
+        } elseif ($statusBaru === Booking::STATUS_CONFIRMED && $statusLama === Booking::STATUS_PENDING) {
             $this->layananNotifikasi->notifikasiPemesananDikonfirmasi($pemesanan);
-        } elseif ($dataTervalidasi['status'] === Booking::STATUS_IN_PROGRESS && ($statusLama === Booking::STATUS_CONFIRMED || $statusLama === Booking::STATUS_PENDING)) {
+        } elseif ($statusBaru === Booking::STATUS_IN_PROGRESS && ($statusLama === Booking::STATUS_CONFIRMED || $statusLama === Booking::STATUS_PENDING)) {
             $this->layananNotifikasi->notifikasiPemesananDiproses($pemesanan);
-        } elseif ($dataTervalidasi['status'] === Booking::STATUS_CANCELLED) {
+        } elseif ($statusBaru === Booking::STATUS_CANCELLED) {
             $this->layananNotifikasi->notifikasiPemesananDibatalkan($pemesanan);
         }
 

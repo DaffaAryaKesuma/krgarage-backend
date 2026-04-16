@@ -20,7 +20,13 @@ Route::post('/daftar', [AuthController::class, 'daftar']);
 Route::post('/masuk', [AuthController::class, 'masuk']);
 Route::get('/layanan', [ServiceController::class, 'index']);
 
+// Rute untuk semua pengguna terautentikasi
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/keluar', [AuthController::class, 'keluar']);
+});
+
+// Rute untuk pelanggan
+Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     // Rute untuk vespa milik pelanggan
     Route::get('/vespa-saya', [VespaController::class, 'index']);
     Route::post('/vespa-saya', [VespaController::class, 'store']);

@@ -72,6 +72,10 @@ class MechanicDashboardController extends Controller
     public function show(Booking $pemesanan)
     {
         try {
+            if ($responAkses = $this->pastikanMekanikDitugaskan(auth()->user()->id, $pemesanan)) {
+                return $responAkses;
+            }
+
             $pemesanan = $this->layananSukuCadang->ambilPemesananDenganRelasi($pemesanan);
 
             return response()->json($pemesanan, 200);
@@ -90,8 +94,12 @@ class MechanicDashboardController extends Controller
      */
     public function updateStatus(Request $request, Booking $pemesanan)
     {
+        if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
+            return $responAkses;
+        }
+
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:Confirmed,In Progress,Completed',
+            'status' => 'required|in:Completed',
         ]);
 
         if ($validator->fails()) {
@@ -103,8 +111,25 @@ class MechanicDashboardController extends Controller
         }
 
         try {
+            $statusLama = $pemesanan->status;
+            $statusBaru = $request->status;
+
+            if (in_array($statusLama, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Status pemesanan yang sudah selesai atau dibatalkan tidak dapat diubah lagi.',
+                ], 400);
+            }
+
+            if ($statusLama !== Booking::STATUS_IN_PROGRESS) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mekanik hanya dapat menyelesaikan pemesanan yang berstatus sedang dikerjakan.',
+                ], 400);
+            }
+
             // Jika selesai, kurangi stok suku cadang secara otomatis
-            if ($request->status === Booking::STATUS_COMPLETED) {
+            if ($statusBaru === Booking::STATUS_COMPLETED) {
                 $adaSukuCadang = $pemesanan->itemPemesanan()->exists();
 
                 if ($adaSukuCadang) {
@@ -118,14 +143,12 @@ class MechanicDashboardController extends Controller
                 }
             }
 
-            $pemesanan->status = $request->status;
+            $pemesanan->status = $statusBaru;
             $pemesanan->save();
 
             // Kirim notifikasi ke pelanggan berdasarkan perubahan status
-            if ($request->status === Booking::STATUS_COMPLETED) {
+            if ($statusBaru === Booking::STATUS_COMPLETED) {
                 $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
-            } elseif ($request->status === Booking::STATUS_IN_PROGRESS) {
-                $this->layananNotifikasi->notifikasiPemesananDiproses($pemesanan);
             }
 
             return response()->json([
@@ -148,6 +171,14 @@ class MechanicDashboardController extends Controller
      */
     public function tambahSukuCadang(Request $request, Booking $pemesanan)
     {
+        if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
+            return $responAkses;
+        }
+
+        if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) {
+            return $responStatus;
+        }
+
         $validator = Validator::make($request->all(), [
             'id_suku_cadang' => 'required|exists:suku_cadang,id',
             'jumlah'         => 'required|integer|min:1',
@@ -196,6 +227,14 @@ class MechanicDashboardController extends Controller
     public function hapusSukuCadang(Request $request, Booking $pemesanan, BookingItem $itemPemesanan)
     {
         try {
+            if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
+                return $responAkses;
+            }
+
+            if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) {
+                return $responStatus;
+            }
+
             // Verifikasi item pemesanan milik pemesanan ini
             if ($itemPemesanan->id_pemesanan !== $pemesanan->id) {
                 return response()->json([
@@ -250,8 +289,11 @@ class MechanicDashboardController extends Controller
     public function riwayat(Request $request)
     {
         try {
+            $idMekanik = $request->user()->id;
+
             $query = Booking::with(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang'])
-                ->where('status', Booking::STATUS_COMPLETED);
+                ->where('status', Booking::STATUS_COMPLETED)
+                ->where('id_mekanik', $idMekanik);
 
             // Opsional: batasi ke riwayat terbaru (misalnya 30 hari terakhir)
             if ($request->has('days')) {
@@ -276,5 +318,35 @@ class MechanicDashboardController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Pastikan hanya mekanik yang ditugaskan yang boleh mengakses / memodifikasi pemesanan.
+     */
+    private function pastikanMekanikDitugaskan(int $idMekanikLogin, Booking $pemesanan)
+    {
+        if ((int) $pemesanan->id_mekanik !== $idMekanikLogin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke pemesanan ini.',
+            ], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Pastikan pemesanan yang dimodifikasi mekanik belum berstatus final.
+     */
+    private function pastikanPemesananMasihBisaDimodifikasi(Booking $pemesanan)
+    {
+        if (in_array($pemesanan->status, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pemesanan yang sudah selesai atau dibatalkan tidak dapat dimodifikasi.',
+            ], 400);
+        }
+
+        return null;
     }
 }

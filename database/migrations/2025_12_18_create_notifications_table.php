@@ -13,15 +13,15 @@ return new class extends Migration
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_pengguna')->constrained()->onDelete('cascade');
+            $table->foreignId('id_pengguna')->constrained('users')->onDelete('cascade');
             $table->enum('type', [
                 'booking_confirmed',
                 'booking_in_progress',
                 'booking_completed',
                 'booking_cancelled'
-            ]);
-            $table->string('title');
-            $table->text('message');
+            ])->nullable();
+            $table->string('title')->nullable();
+            $table->text('message')->nullable();
             $table->boolean('sudah_dibaca')->default(false);
             $table->foreignId('id_pemesanan')->nullable()->constrained('bookings')->onDelete('cascade');
             $table->timestamps();
