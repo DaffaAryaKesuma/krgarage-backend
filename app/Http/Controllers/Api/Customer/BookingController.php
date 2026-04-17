@@ -49,6 +49,28 @@ class BookingController extends Controller
     }
 
     /**
+     * Menampilkan detail satu pemesanan milik pelanggan yang sedang login.
+     */
+    public function show(Request $request, Booking $pemesanan)
+    {
+        if ($pemesanan->id_pengguna !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses untuk melihat pemesanan ini.',
+            ], 403);
+        }
+
+        $pemesanan->load([
+            'pengguna:id,nama,email',
+            'vespa:id,model,plat_nomor,tahun_produksi',
+            'layanan:id,nama_layanan,harga',
+            'mekanik:id,nama,email',
+            'itemPemesanan.sukuCadang:id,nama_suku_cadang,kategori',
+        ]);
+
+        return response()->json($pemesanan);
+    }
+
+    /**
      * Membuat pemesanan servis baru.
      */
     public function store(Request $request)
@@ -88,6 +110,7 @@ class BookingController extends Controller
             'jam_pemesanan'     => $dataTervalidasi['jam_pemesanan'],
             'catatan_pelanggan' => $dataTervalidasi['catatan_pelanggan'] ?? null,
             'status'            => Booking::STATUS_PENDING,
+            'status_pembayaran' => Booking::PAYMENT_STATUS_UNPAID,
         ]);
 
         $totalHarga = 0;

@@ -96,6 +96,11 @@ class AdminBookingController extends Controller
         }
 
         $pemesanan->status = $statusBaru;
+
+        if ($statusBaru === Booking::STATUS_COMPLETED && $pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
+            $pemesanan->status_pembayaran = Booking::PAYMENT_STATUS_UNPAID;
+        }
+
         $pemesanan->save();
 
         // Trigger notifikasi berdasarkan status baru
@@ -120,6 +125,39 @@ class AdminBookingController extends Controller
 
         return response()->json([
             'message'   => 'Status pemesanan berhasil diperbarui!',
+            'pemesanan' => $pemesanan,
+        ]);
+    }
+
+    /**
+     * Memperbarui status pembayaran pemesanan.
+     */
+    public function updatePaymentStatus(Request $request, Booking $pemesanan)
+    {
+        $dataTervalidasi = $request->validate([
+            'status_pembayaran' => 'required|string|in:Belum Lunas,Lunas',
+        ]);
+
+        if ($pemesanan->status !== Booking::STATUS_COMPLETED) {
+            return response()->json([
+                'message' => 'Status pembayaran hanya dapat diubah setelah servis selesai.',
+            ], 400);
+        }
+
+        $statusPembayaranBaru = $dataTervalidasi['status_pembayaran'];
+
+        if ($pemesanan->status_pembayaran === $statusPembayaranBaru) {
+            return response()->json([
+                'message'   => 'Status pembayaran sudah berada pada nilai yang sama.',
+                'pemesanan' => $pemesanan,
+            ]);
+        }
+
+        $pemesanan->status_pembayaran = $statusPembayaranBaru;
+        $pemesanan->save();
+
+        return response()->json([
+            'message'   => 'Status pembayaran berhasil diperbarui!',
             'pemesanan' => $pemesanan,
         ]);
     }

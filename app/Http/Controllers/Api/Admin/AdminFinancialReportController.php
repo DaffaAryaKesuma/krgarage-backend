@@ -17,8 +17,8 @@ class AdminFinancialReportController extends Controller
         $tahun = $request->query('year', date('Y'));
         $bulan = $request->query('month', null);
 
-        // Query dasar: hanya pemesanan yang sudah selesai (dianggap sudah dibayar)
-        $query = Booking::selesai();
+        // Query dasar: hanya pemesanan selesai yang status pembayarannya lunas
+        $query = Booking::selesai()->sudahDibayar();
 
         // Filter berdasarkan tahun
         $query->whereYear('tanggal_pemesanan', $tahun);
@@ -48,6 +48,7 @@ class AdminFinancialReportController extends Controller
                 DB::raw('SUM(COALESCE(total_harga, (SELECT SUM(harga_saat_pesan) FROM layanan_pemesanan WHERE layanan_pemesanan.id_pemesanan = pemesanan.id))) as pendapatan')
             )
             ->where('status', Booking::STATUS_COMPLETED)
+            ->where('status_pembayaran', Booking::PAYMENT_STATUS_PAID)
             ->whereYear('tanggal_pemesanan', $tahun)
             ->groupBy(DB::raw('MONTH(tanggal_pemesanan)'))
             ->orderBy('bulan')
@@ -58,6 +59,7 @@ class AdminFinancialReportController extends Controller
             ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
             ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
             ->where('pemesanan.status', Booking::STATUS_COMPLETED)
+            ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
             ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
             ->when($bulan, function ($q) use ($bulan, $tahun) {
                 $q->whereMonth('pemesanan.tanggal_pemesanan', $bulan)

@@ -54,7 +54,7 @@ class NotificationService
     public function notifikasiPemesananSelesai(Booking $pemesanan): void
     {
         $judul = 'Servis Selesai';
-        $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah selesai. Terima kasih telah menggunakan layanan KRGarage!";
+        $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah selesai. Silakan datang ke bengkel untuk mengambil Vespa dan melakukan pembayaran.";
         
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,

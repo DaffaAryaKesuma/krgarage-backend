@@ -34,7 +34,7 @@ class AdminDashboardController extends Controller
     public function pemesananTerbaru()
     {
         // Gunakan select() untuk mengambil kolom tertentu saja - query lebih cepat
-        $daftarPemesanan = Booking::select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'id_mekanik', 'tanggal_pemesanan', 'status', 'created_at')
+        $daftarPemesanan = Booking::select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'id_mekanik', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'created_at')
             ->with(['pengguna:id,nama', 'vespa:id,model', 'mekanik:id,nama'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
@@ -49,8 +49,8 @@ class AdminDashboardController extends Controller
      */
     public function ringkasan()
     {
-        // 1. Total pendapatan (hanya pemesanan yang selesai)
-        $totalPendapatan = Booking::selesai()->sum('total_harga');
+        // 1. Total pendapatan (hanya pemesanan selesai yang sudah lunas)
+        $totalPendapatan = Booking::selesai()->sudahDibayar()->sum('total_harga');
 
         // 2. Jumlah pemesanan
         $totalPemesanan     = Booking::count();
@@ -62,6 +62,7 @@ class AdminDashboardController extends Controller
             ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
             ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
             ->where('pemesanan.status', Booking::STATUS_COMPLETED)
+            ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
             ->select('layanan.nama_layanan', DB::raw('count(*) as total'))
             ->groupBy('layanan.id', 'layanan.nama_layanan')
             ->orderByDesc('total')
@@ -77,6 +78,7 @@ class AdminDashboardController extends Controller
             $tahun      = $tanggal->year;
 
             $pendapatanBulanan = Booking::selesai()
+                ->sudahDibayar()
                 ->whereMonth('updated_at', $nomorBulan)
                 ->whereYear('updated_at', $tahun)
                 ->sum('total_harga');

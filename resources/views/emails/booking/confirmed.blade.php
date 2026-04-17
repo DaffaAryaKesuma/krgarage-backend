@@ -9,7 +9,7 @@ Pesanan Anda telah berhasil kami terima. Berikut adalah rincian jadwal Anda:
 **Tujuan Servis:** {{ $booking->layanan->pluck('nama_layanan')->join(', ') }}  
 **Catatan:**  {{ $booking->catatan_pelanggan ?? 'Tidak ada catatan tambahan' }}
 
-<x-mail::button :url="'http://localhost:5173/app/dashboard'">
+<x-mail::button :url="'http://localhost:5173/app/riwayat'">
 Cek Status Pesanan
 </x-mail::button>
 

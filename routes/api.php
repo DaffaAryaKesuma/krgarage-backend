@@ -23,6 +23,11 @@ Route::get('/layanan', [ServiceController::class, 'index']);
 // Rute untuk semua pengguna terautentikasi
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/keluar', [AuthController::class, 'keluar']);
+
+    // Rute notifikasi untuk semua pengguna login (data tetap dipagari per user di controller)
+    Route::get('/notifikasi', [NotificationController::class, 'index']);
+    Route::post('/notifikasi/{id}/tandai-dibaca', [NotificationController::class, 'tandaiDibaca']);
+    Route::post('/notifikasi/tandai-semua-dibaca', [NotificationController::class, 'tandaiSemuaDibaca']);
 });
 
 // Rute untuk pelanggan
@@ -37,13 +42,10 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     // Rute untuk pemesanan pelanggan
     Route::get('/pemesanan', [BookingController::class, 'index']);
     Route::get('/pemesanan/cek-slot', [BookingController::class, 'cekSlot']);
+    Route::get('/pemesanan/{pemesanan}', [BookingController::class, 'show']);
     Route::post('/pemesanan', [BookingController::class, 'store']);
     Route::post('/pemesanan/{pemesanan}/batalkan', [BookingController::class, 'batalkan']);
 
-    // Rute untuk notifikasi
-    Route::get('/notifikasi', [NotificationController::class, 'index']);
-    Route::post('/notifikasi/{id}/tandai-dibaca', [NotificationController::class, 'tandaiDibaca']);
-    Route::post('/notifikasi/tandai-semua-dibaca', [NotificationController::class, 'tandaiSemuaDibaca']);
 });
 
 // Rute untuk admin
@@ -51,6 +53,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('/pemesanan', [AdminBookingController::class, 'index']);
     Route::get('/pemesanan/{pemesanan}', [AdminBookingController::class, 'show']);
     Route::patch('/pemesanan/{pemesanan}/status', [AdminBookingController::class, 'updateStatus']);
+    Route::patch('/pemesanan/{pemesanan}/status-pembayaran', [AdminBookingController::class, 'updatePaymentStatus']);
 
     Route::post('/layanan', [AdminServiceController::class, 'store']);
     Route::put('/layanan/{service}', [AdminServiceController::class, 'update']);

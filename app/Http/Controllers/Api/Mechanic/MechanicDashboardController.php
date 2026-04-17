@@ -100,6 +100,7 @@ class MechanicDashboardController extends Controller
 
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:Completed',
+            'catatan_mekanik' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -113,6 +114,17 @@ class MechanicDashboardController extends Controller
         try {
             $statusLama = $pemesanan->status;
             $statusBaru = $request->status;
+            $catatanMekanik = trim((string) $request->catatan_mekanik);
+
+            if ($catatanMekanik === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data tidak valid',
+                    'errors'  => [
+                        'catatan_mekanik' => ['Catatan mekanik wajib diisi.'],
+                    ],
+                ], 422);
+            }
 
             if (in_array($statusLama, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
                 return response()->json([
@@ -144,6 +156,12 @@ class MechanicDashboardController extends Controller
             }
 
             $pemesanan->status = $statusBaru;
+
+            if ($statusBaru === Booking::STATUS_COMPLETED && $pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
+                $pemesanan->status_pembayaran = Booking::PAYMENT_STATUS_UNPAID;
+            }
+
+            $pemesanan->catatan_mekanik = $catatanMekanik;
             $pemesanan->save();
 
             // Kirim notifikasi ke pelanggan berdasarkan perubahan status

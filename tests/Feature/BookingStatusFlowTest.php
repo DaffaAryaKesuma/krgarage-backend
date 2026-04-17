@@ -40,15 +40,18 @@ class BookingStatusFlowTest extends TestCase
         Sanctum::actingAs($mekanik);
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_COMPLETED,
+            'catatan_mekanik' => 'Pekerjaan selesai, keluhan utama sudah ditangani.',
         ])
             ->assertOk()
-            ->assertJsonPath('data.status', Booking::STATUS_COMPLETED);
+            ->assertJsonPath('data.status', Booking::STATUS_COMPLETED)
+            ->assertJsonPath('data.catatan_mekanik', 'Pekerjaan selesai, keluhan utama sudah ditangani.');
 
         $sukuCadang->refresh();
         $this->assertSame($stokAwal - 1, $sukuCadang->jumlah_stok);
 
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_COMPLETED,
+            'catatan_mekanik' => 'Percobaan update ulang setelah selesai.',
         ])
             ->assertStatus(400)
             ->assertJsonPath('message', 'Status pemesanan yang sudah selesai atau dibatalkan tidak dapat diubah lagi.');
@@ -89,9 +92,25 @@ class BookingStatusFlowTest extends TestCase
         Sanctum::actingAs($mekanik);
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_COMPLETED,
+            'catatan_mekanik' => 'Sudah dicek, namun status belum in progress.',
         ])
             ->assertStatus(400)
             ->assertJsonPath('message', 'Mekanik hanya dapat menyelesaikan pemesanan yang berstatus sedang dikerjakan.');
+    }
+
+    public function test_mechanic_must_fill_note_when_completing_booking(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_IN_PROGRESS);
+
+        $mekanik = $skenario['mekanik'];
+        $pemesanan = $skenario['pemesanan'];
+
+        Sanctum::actingAs($mekanik);
+        $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
+            'status' => Booking::STATUS_COMPLETED,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.catatan_mekanik.0', 'The catatan mekanik field is required.');
     }
 
     public function test_admin_can_cancel_booking_and_mechanic_cannot_modify_cancelled_booking(): void
@@ -116,6 +135,7 @@ class BookingStatusFlowTest extends TestCase
         Sanctum::actingAs($mekanik);
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_COMPLETED,
+            'catatan_mekanik' => 'Mencoba ubah status booking yang sudah dibatalkan.',
         ])
             ->assertStatus(400)
             ->assertJsonPath('message', 'Status pemesanan yang sudah selesai atau dibatalkan tidak dapat diubah lagi.');

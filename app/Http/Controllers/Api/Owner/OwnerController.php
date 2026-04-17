@@ -41,11 +41,13 @@ class OwnerController extends Controller
 
             // Omzet hari ini
             $pendapatanHariIni = Booking::selesai()
+                ->sudahDibayar()
                 ->whereDate('updated_at', $hari)
                 ->sum('total_harga');
 
             // Omzet bulan ini
             $pendapatanBulanIni = Booking::selesai()
+                ->sudahDibayar()
                 ->where('updated_at', '>=', $awalBulanIni)
                 ->sum('total_harga');
 
@@ -107,6 +109,7 @@ class OwnerController extends Controller
             $petaPendapatan = [];
 
             $pendapatanHarian = Booking::selesai()
+                ->sudahDibayar()
                 ->whereBetween('tanggal_pemesanan', [$tanggalMulai, $tanggalAkhir])
                 ->selectRaw('DATE(tanggal_pemesanan) as tanggal, SUM(total_harga) as total')
                 ->groupBy('tanggal')
@@ -160,6 +163,7 @@ class OwnerController extends Controller
 
             $daftarTransaksi = Booking::with(['pengguna:id,nama', 'vespa:id,plat_nomor'])
                 ->where('status', Booking::STATUS_COMPLETED)
+                ->where('status_pembayaran', Booking::PAYMENT_STATUS_PAID)
                 ->whereBetween('tanggal_pemesanan', [$tanggalMulai, $tanggalAkhir])
                 ->orderBy('tanggal_pemesanan', 'DESC')
                 ->get()
@@ -206,7 +210,8 @@ class OwnerController extends Controller
             $daftarLayananTerpopuler = DB::table('layanan')
                 ->join('layanan_pemesanan', 'layanan.id', '=', 'layanan_pemesanan.id_layanan')
                 ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-                ->where('pemesanan.status', 'Completed')
+                ->where('pemesanan.status', Booking::STATUS_COMPLETED)
+                ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
                 ->when($bulan, function ($query) use ($bulan) {
                     return $query->whereMonth('pemesanan.tanggal_pemesanan', $bulan);
                 })
@@ -244,7 +249,8 @@ class OwnerController extends Controller
             $daftarSukuCadangTerlaris = DB::table('suku_cadang')
                 ->join('item_pemesanan', 'suku_cadang.id', '=', 'item_pemesanan.id_suku_cadang')
                 ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-                ->where('pemesanan.status', 'Completed')
+                ->where('pemesanan.status', Booking::STATUS_COMPLETED)
+                ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
                 ->when($bulan, function ($query) use ($bulan) {
                     return $query->whereMonth('pemesanan.tanggal_pemesanan', $bulan);
                 })

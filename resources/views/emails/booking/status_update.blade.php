@@ -22,7 +22,7 @@ _{{ $pemesanan->catatan_pelanggan }}_
 
 Anda dapat memantau riwayat pesanan servis secara langsung melalui dashboard akun pelanggan Anda:
 
-<x-mail::button url="http://localhost:5173/app/dashboard">
+<x-mail::button url="http://localhost:5173/app/riwayat">
 Cek Status Pesanan
 </x-mail::button>
 
