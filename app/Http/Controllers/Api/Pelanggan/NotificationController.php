@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Customer;
+namespace App\Http\Controllers\Api\Pelanggan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('customer')->after('password'); // Menambah kolom 'role'
+            $table->string('role')->default('pelanggan')->after('password'); // Menambah kolom 'role'
         });
     }
 

@@ -77,12 +77,12 @@ return new class extends Migration
 
         if (!Schema::hasColumn('pengguna', 'role')) {
             Schema::table('pengguna', function (Blueprint $table) {
-                $table->string('role')->default('customer')->after('password');
+                $table->string('role')->default('pelanggan')->after('password');
             });
         }
 
         if (Schema::hasColumn('pengguna', 'role')) {
-            DB::statement("UPDATE `pengguna` SET `role` = 'customer' WHERE `role` IS NULL OR `role` = ''");
+            DB::statement("UPDATE `pengguna` SET `role` = 'pelanggan' WHERE `role` IS NULL OR `role` = ''");
         }
     }
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Mechanic;
+namespace App\Http\Controllers\Api\Mekanik;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
@@ -10,7 +10,7 @@ use App\Services\BookingSparepartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class MechanicDashboardController extends Controller
+class MekanikDashboardController extends Controller
 {
     protected $layananNotifikasi;
     protected $layananSukuCadang;

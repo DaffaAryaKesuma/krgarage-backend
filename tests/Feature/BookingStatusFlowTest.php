@@ -163,7 +163,7 @@ class BookingStatusFlowTest extends TestCase
     {
         $admin = $this->buatPengguna('admin');
         $mekanik = $this->buatPengguna('mekanik');
-        $pelanggan = $this->buatPengguna('customer');
+        $pelanggan = $this->buatPengguna('pelanggan');
 
         $vespa = Vespa::create([
             'id_pengguna' => $pelanggan->id,

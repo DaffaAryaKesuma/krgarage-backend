@@ -4,16 +4,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ServiceController;
-use App\Http\Controllers\Api\Customer\VespaController;
-use App\Http\Controllers\Api\Customer\BookingController;
-use App\Http\Controllers\Api\Customer\NotificationController;
+use App\Http\Controllers\Api\Pelanggan\VespaController;
+use App\Http\Controllers\Api\Pelanggan\BookingController;
+use App\Http\Controllers\Api\Pelanggan\NotificationController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 use App\Http\Controllers\Api\Admin\AdminFinancialReportController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
 use App\Http\Controllers\Api\Admin\AdminSparepartController;
-use App\Http\Controllers\Api\Mechanic\MechanicDashboardController;
-use App\Http\Controllers\Api\Owner\OwnerController;
+use App\Http\Controllers\Api\Mekanik\MekanikDashboardController;
+use App\Http\Controllers\Api\Pemilik\PemilikController;
 
 // Rute publik: registrasi dan login
 Route::post('/daftar', [AuthController::class, 'daftar']);
@@ -31,7 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Rute untuk pelanggan
-Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:pelanggan'])->group(function () {
     // Rute untuk vespa milik pelanggan
     Route::get('/vespa-saya', [VespaController::class, 'index']);
     Route::post('/vespa-saya', [VespaController::class, 'store']);
@@ -85,20 +85,20 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 
 // Rute untuk mekanik
 Route::middleware(['auth:sanctum', 'role:mekanik'])->prefix('mekanik')->group(function () {
-    Route::get('/pemesanan', [MechanicDashboardController::class, 'index']);
-    Route::put('/pemesanan/{pemesanan}/status', [MechanicDashboardController::class, 'updateStatus']);
-    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [MechanicDashboardController::class, 'tambahSukuCadang']);
-    Route::delete('/pemesanan/{pemesanan}/item/{itemPemesanan}', [MechanicDashboardController::class, 'hapusSukuCadang']);
-    Route::get('/suku-cadang', [MechanicDashboardController::class, 'daftarSukuCadangTersedia']);
+    Route::get('/pemesanan', [MekanikDashboardController::class, 'index']);
+    Route::put('/pemesanan/{pemesanan}/status', [MekanikDashboardController::class, 'updateStatus']);
+    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [MekanikDashboardController::class, 'tambahSukuCadang']);
+    Route::delete('/pemesanan/{pemesanan}/item/{itemPemesanan}', [MekanikDashboardController::class, 'hapusSukuCadang']);
+    Route::get('/suku-cadang', [MekanikDashboardController::class, 'daftarSukuCadangTersedia']);
 });
 
-// Rute untuk owner (monitoring)
-Route::middleware(['auth:sanctum', 'role:owner'])->prefix('pemilik')->group(function () {
-    Route::get('/statistik', [OwnerController::class, 'statistik']);
-    Route::get('/pemesanan-terbaru', [OwnerController::class, 'pemesananTerbaru']);
-    Route::get('/tren-pendapatan', [OwnerController::class, 'trenPendapatan']);
-    Route::get('/transaksi', [OwnerController::class, 'transaksi']);
-    Route::get('/layanan-terpopuler', [OwnerController::class, 'layananTerpopuler']);
-    Route::get('/suku-cadang-terlaris', [OwnerController::class, 'sukuCadangTerlaris']);
-    Route::get('/stok-menipis', [OwnerController::class, 'stokMenipis']);
+// Rute untuk pemilik (monitoring)
+Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(function () {
+    Route::get('/statistik', [PemilikController::class, 'statistik']);
+    Route::get('/pemesanan-terbaru', [PemilikController::class, 'pemesananTerbaru']);
+    Route::get('/tren-pendapatan', [PemilikController::class, 'trenPendapatan']);
+    Route::get('/transaksi', [PemilikController::class, 'transaksi']);
+    Route::get('/layanan-terpopuler', [PemilikController::class, 'layananTerpopuler']);
+    Route::get('/suku-cadang-terlaris', [PemilikController::class, 'sukuCadangTerlaris']);
+    Route::get('/stok-menipis', [PemilikController::class, 'stokMenipis']);
 });

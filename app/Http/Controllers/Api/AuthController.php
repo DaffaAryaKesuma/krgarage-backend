@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\RoleNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -43,7 +44,7 @@ class AuthController extends Controller
             'email'      => $dataTervalidasi['email'] ?? $nomorBersih . '@krgarage.com',
             'no_telepon' => $nomorBersih,
             'password'   => Hash::make($dataTervalidasi['password']),
-            'role'       => 'customer',
+            'role'       => 'pelanggan',
         ]);
 
         $token = $pengguna->createToken('auth_token')->plainTextToken;
@@ -73,6 +74,13 @@ class AuthController extends Controller
         $pengguna = Auth::user();
         $token    = $pengguna->createToken('auth_token')->plainTextToken;
 
+        $roleTernormalisasi = RoleNormalizer::normalizeOrNull($pengguna->role);
+        if ($roleTernormalisasi && $roleTernormalisasi !== $pengguna->role) {
+            $pengguna->forceFill(['role' => $roleTernormalisasi])->save();
+        }
+
+        $roleUntukResponse = $roleTernormalisasi ?? ($pengguna->role ?: RoleNormalizer::normalize(null));
+
         return response()->json([
             'access_token' => $token,
             'token'        => $token,
@@ -80,7 +88,7 @@ class AuthController extends Controller
                 'id'         => $pengguna->id,
                 'nama'       => $pengguna->nama,
                 'email'      => $pengguna->email,
-                'role'       => $pengguna->role,
+                'role'       => $roleUntukResponse,
                 'no_telepon' => $pengguna->no_telepon,
             ],
         ]);

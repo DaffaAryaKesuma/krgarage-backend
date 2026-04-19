@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\RoleNormalizer;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +17,16 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        // Cek apakah pengguna sudah login DAN apakah rolenya ada di dalam daftar $roles yang diizinkan
-        if (!Auth::check() || !in_array(Auth::user()->role, $roles)) {
+        $pengguna = Auth::user();
+        $rolePengguna = RoleNormalizer::normalizeOrNull($pengguna?->role);
+
+        $roleDiizinkan = array_values(array_filter(array_map(
+            static fn ($role) => RoleNormalizer::normalizeOrNull((string) $role),
+            $roles,
+        )));
+
+        // Cek apakah pengguna sudah login DAN apakah rolenya ada di dalam daftar role yang diizinkan
+        if (!Auth::check() || !$rolePengguna || !in_array($rolePengguna, $roleDiizinkan, true)) {
             // Jika tidak, tolak akses
             return response()->json(['message' => 'Anda tidak memiliki akses untuk melakukan tindakan ini.'], 403);
         }

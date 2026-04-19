@@ -96,6 +96,6 @@ class User extends Authenticatable
      */
     public function scopePelanggan($query)
     {
-        return $query->where('role', 'customer');
+        return $query->whereIn('role', ['pelanggan', 'customer']);
     }
 }

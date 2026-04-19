@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Owner;
+namespace App\Http\Controllers\Api\Pemilik;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
-class OwnerController extends Controller
+class PemilikController extends Controller
 {
     /**
      * Helper: Ubah data pemesanan ke format respons standar.
@@ -31,7 +31,7 @@ class OwnerController extends Controller
     }
 
     /**
-     * Mendapatkan statistik dashboard owner.
+    * Mendapatkan statistik dashboard pemilik.
      */
     public function statistik(Request $request)
     {
@@ -180,6 +180,7 @@ class OwnerController extends Controller
                         ],
                         'total_harga'       => $pemesanan->total_harga ?? 0,
                         'status'            => $pemesanan->status,
+                        'status_pembayaran' => $pemesanan->status_pembayaran,
                     ];
                 });
 
