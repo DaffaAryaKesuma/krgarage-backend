@@ -4,12 +4,23 @@ namespace App\Services;
 
 use App\Models\Notification;
 use App\Models\Booking;
+use App\Models\Sparepart;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingStatusUpdateMail;
 
 class NotificationService
 {
+    /**
+     * Ambil daftar akun pemilik (termasuk alias role legacy).
+     */
+    private function ambilDaftarPemilik()
+    {
+        return User::query()
+            ->whereIn('role', ['pemilik', 'owner'])
+            ->get(['id']);
+    }
+
     /**
      * Kirim email pembaruan status ke pelanggan
      */
@@ -187,5 +198,207 @@ class NotificationService
             $pesan,
             $pemesanan->id
         );
+    }
+
+    /**
+     * Notifikasi ke pemilik saat pembayaran sebuah pemesanan diterima.
+     */
+    public function notifikasiPemilikPembayaranDiterima(Booking $pemesanan): void
+    {
+        if ($pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
+            return;
+        }
+
+        $daftarPemilik = $this->ambilDaftarPemilik();
+        if ($daftarPemilik->isEmpty()) {
+            return;
+        }
+
+        $pemesanan->loadMissing('pengguna');
+
+        $namaPelanggan = $pemesanan->pengguna->nama ?? 'Pelanggan';
+        $totalPembayaran = 'Rp' . number_format((float) ($pemesanan->total_harga ?? 0), 0, ',', '.');
+        $judul = 'Pembayaran Diterima';
+        $pesan = "Pemesanan {$pemesanan->kode_pemesanan} dari {$namaPelanggan} telah lunas ({$totalPembayaran}).";
+
+        foreach ($daftarPemilik as $pemilik) {
+            $sudahPernahTerkirimKePemilik = Notification::query()
+                ->where('id_pengguna', $pemilik->id)
+                ->where('tipe', Notification::TYPE_PAYMENT_RECEIVED)
+                ->where('id_pemesanan', $pemesanan->id)
+                ->exists();
+
+            if ($sudahPernahTerkirimKePemilik) {
+                continue;
+            }
+
+            try {
+                $this->buatNotifikasi(
+                    $pemilik->id,
+                    Notification::TYPE_PAYMENT_RECEIVED,
+                    $judul,
+                    $pesan,
+                    $pemesanan->id
+                );
+            } catch (\Throwable $e) {
+                \Log::error('Gagal membuat notifikasi pembayaran owner: ' . $e->getMessage(), [
+                    'id_pemesanan' => $pemesanan->id,
+                    'id_pemilik' => $pemilik->id,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Notifikasi ke pemilik saat stok suku cadang melewati batas minimal.
+     */
+    public function notifikasiPemilikStokMenipis(Sparepart $sukuCadang, ?int $stokSebelum = null): void
+    {
+        if ((int) $sukuCadang->jumlah_stok > (int) $sukuCadang->batas_minimal_stok) {
+            return;
+        }
+
+        if ($stokSebelum !== null && $stokSebelum <= (int) $sukuCadang->batas_minimal_stok) {
+            return;
+        }
+
+        $daftarPemilik = $this->ambilDaftarPemilik();
+        if ($daftarPemilik->isEmpty()) {
+            return;
+        }
+
+        $judul = 'Stok Menipis';
+        $pesan = "Stok {$sukuCadang->nama_suku_cadang} menipis ({$sukuCadang->jumlah_stok} tersisa, batas minimal {$sukuCadang->batas_minimal_stok}).";
+
+        foreach ($daftarPemilik as $pemilik) {
+            $sudahAdaNotifikasiSerupa = Notification::query()
+                ->where('id_pengguna', $pemilik->id)
+                ->where('tipe', Notification::TYPE_LOW_STOCK)
+                ->where('judul', $judul)
+                ->where('pesan', $pesan)
+                ->where('created_at', '>=', now()->subHours(12))
+                ->exists();
+
+            if ($sudahAdaNotifikasiSerupa) {
+                continue;
+            }
+
+            try {
+                $this->buatNotifikasi(
+                    $pemilik->id,
+                    Notification::TYPE_LOW_STOCK,
+                    $judul,
+                    $pesan,
+                    null
+                );
+            } catch (\Throwable $e) {
+                \Log::error('Gagal membuat notifikasi stok menipis owner: ' . $e->getMessage(), [
+                    'id_suku_cadang' => $sukuCadang->id,
+                    'id_pemilik' => $pemilik->id,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Sinkronisasi notifikasi pembayaran owner untuk pemesanan lunas yang belum sempat terkirim.
+     */
+    public function sinkronkanNotifikasiPembayaranPemilik(User $pemilik, int $batasHari = 30): void
+    {
+        $role = strtolower((string) ($pemilik->role ?? ''));
+        if (!in_array($role, ['pemilik', 'owner'], true)) {
+            return;
+        }
+
+        $batasWaktu = now()->subDays(max(1, $batasHari));
+
+        $daftarPemesananLunas = Booking::query()
+            ->where('status', Booking::STATUS_COMPLETED)
+            ->where('status_pembayaran', Booking::PAYMENT_STATUS_PAID)
+            ->where('updated_at', '>=', $batasWaktu)
+            ->with('pengguna:id,nama')
+            ->orderByDesc('updated_at')
+            ->limit(100)
+            ->get();
+
+        foreach ($daftarPemesananLunas as $pemesanan) {
+            $sudahAda = Notification::query()
+                ->where('id_pengguna', $pemilik->id)
+                ->where('tipe', Notification::TYPE_PAYMENT_RECEIVED)
+                ->where('id_pemesanan', $pemesanan->id)
+                ->exists();
+
+            if ($sudahAda) {
+                continue;
+            }
+
+            $namaPelanggan = $pemesanan->pengguna->nama ?? 'Pelanggan';
+            $totalPembayaran = 'Rp' . number_format((float) ($pemesanan->total_harga ?? 0), 0, ',', '.');
+            $judul = 'Pembayaran Diterima';
+            $pesan = "Pemesanan {$pemesanan->kode_pemesanan} dari {$namaPelanggan} telah lunas ({$totalPembayaran}).";
+
+            try {
+                $this->buatNotifikasi(
+                    $pemilik->id,
+                    Notification::TYPE_PAYMENT_RECEIVED,
+                    $judul,
+                    $pesan,
+                    $pemesanan->id
+                );
+            } catch (\Throwable $e) {
+                \Log::error('Gagal sinkronisasi notifikasi pembayaran owner: ' . $e->getMessage(), [
+                    'id_pemesanan' => $pemesanan->id,
+                    'id_pemilik' => $pemilik->id,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Sinkronisasi notifikasi stok menipis owner untuk suku cadang yang saat ini sudah di bawah batas.
+     */
+    public function sinkronkanNotifikasiStokMenipisPemilik(User $pemilik): void
+    {
+        $role = strtolower((string) ($pemilik->role ?? ''));
+        if (!in_array($role, ['pemilik', 'owner'], true)) {
+            return;
+        }
+
+        $daftarSukuCadangStokMenipis = Sparepart::query()
+            ->whereRaw('jumlah_stok <= batas_minimal_stok')
+            ->orderBy('jumlah_stok')
+            ->limit(100)
+            ->get();
+
+        foreach ($daftarSukuCadangStokMenipis as $sukuCadang) {
+            $judul = 'Stok Menipis';
+            $pesan = "Stok {$sukuCadang->nama_suku_cadang} menipis ({$sukuCadang->jumlah_stok} tersisa, batas minimal {$sukuCadang->batas_minimal_stok}).";
+
+            $sudahAda = Notification::query()
+                ->where('id_pengguna', $pemilik->id)
+                ->where('tipe', Notification::TYPE_LOW_STOCK)
+                ->where('judul', $judul)
+                ->where('pesan', $pesan)
+                ->exists();
+
+            if ($sudahAda) {
+                continue;
+            }
+
+            try {
+                $this->buatNotifikasi(
+                    $pemilik->id,
+                    Notification::TYPE_LOW_STOCK,
+                    $judul,
+                    $pesan,
+                    null
+                );
+            } catch (\Throwable $e) {
+                \Log::error('Gagal sinkronisasi notifikasi stok menipis owner: ' . $e->getMessage(), [
+                    'id_suku_cadang' => $sukuCadang->id,
+                    'id_pemilik' => $pemilik->id,
+                ]);
+            }
+        }
     }
 }

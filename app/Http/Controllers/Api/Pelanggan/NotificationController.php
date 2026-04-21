@@ -4,16 +4,35 @@ namespace App\Http\Controllers\Api\Pelanggan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
 {
+    protected $layananNotifikasi;
+
+    public function __construct(NotificationService $layananNotifikasi)
+    {
+        $this->layananNotifikasi = $layananNotifikasi;
+    }
+
     /**
      * Menampilkan semua notifikasi milik pengguna yang sedang login.
      */
     public function index()
     {
+        $penggunaLogin = Auth::user();
+
+        if ($penggunaLogin) {
+            $role = strtolower((string) ($penggunaLogin->role ?? ''));
+
+            if (in_array($role, ['pemilik', 'owner'], true)) {
+                $this->layananNotifikasi->sinkronkanNotifikasiPembayaranPemilik($penggunaLogin);
+                $this->layananNotifikasi->sinkronkanNotifikasiStokMenipisPemilik($penggunaLogin);
+            }
+        }
+
         $daftarNotifikasi = Notification::where('id_pengguna', Auth::id())
             ->with('pemesanan')
             ->orderBy('created_at', 'desc')

@@ -145,7 +145,14 @@ class MekanikDashboardController extends Controller
                 $adaSukuCadang = $pemesanan->itemPemesanan()->exists();
 
                 if ($adaSukuCadang) {
-                    $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+                    $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+
+                    foreach ($ringkasanPerubahanStok as $perubahanStok) {
+                        $this->layananNotifikasi->notifikasiPemilikStokMenipis(
+                            $perubahanStok['suku_cadang'],
+                            $perubahanStok['stok_sebelum']
+                        );
+                    }
                 }
 
                 // Perbarui tanggal servis terakhir & berikutnya di tabel vespa

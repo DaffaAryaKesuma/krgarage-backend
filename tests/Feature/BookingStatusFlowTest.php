@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use App\Models\BookingItem;
+use App\Models\Notification;
 use App\Models\Sparepart;
 use App\Models\User;
 use App\Models\Vespa;
@@ -154,6 +155,112 @@ class BookingStatusFlowTest extends TestCase
         $sukuCadang->refresh();
         $this->assertSame($stokAwal, $sukuCadang->jumlah_stok);
         $this->assertDatabaseHas('item_pemesanan', ['id' => $itemPemesanan->id]);
+    }
+
+    public function test_owner_receives_low_stock_notification_when_completion_crosses_minimum_threshold(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_IN_PROGRESS);
+
+        $owner = $this->buatPengguna('pemilik');
+        $mekanik = $skenario['mekanik'];
+        $pemesanan = $skenario['pemesanan'];
+        $sukuCadang = $skenario['suku_cadang'];
+        $itemPemesanan = $skenario['item_pemesanan'];
+
+        $itemPemesanan->update(['jumlah' => 9]);
+
+        Sanctum::actingAs($mekanik);
+        $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
+            'status' => Booking::STATUS_COMPLETED,
+            'catatan_mekanik' => 'Pekerjaan selesai dan stok terpakai besar.',
+        ])->assertOk();
+
+        $sukuCadang->refresh();
+        $this->assertSame(1, $sukuCadang->jumlah_stok);
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_LOW_STOCK,
+        ]);
+    }
+
+    public function test_owner_receives_payment_notification_when_admin_marks_booking_as_paid(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_COMPLETED);
+
+        $owner = $this->buatPengguna('pemilik');
+        $admin = $skenario['admin'];
+        $pemesanan = $skenario['pemesanan'];
+
+        Sanctum::actingAs($admin);
+        $this->patchJson("/api/admin/pemesanan/{$pemesanan->id}/status-pembayaran", [
+            'status_pembayaran' => Booking::PAYMENT_STATUS_PAID,
+        ])
+            ->assertOk()
+            ->assertJsonPath('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID);
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_PAYMENT_RECEIVED,
+            'id_pemesanan' => $pemesanan->id,
+        ]);
+    }
+
+    public function test_owner_notification_index_backfills_missed_paid_booking_notifications(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_COMPLETED);
+
+        $owner = $this->buatPengguna('pemilik');
+        $pemesanan = $skenario['pemesanan'];
+
+        $pemesanan->status_pembayaran = Booking::PAYMENT_STATUS_PAID;
+        $pemesanan->save();
+
+        $this->assertDatabaseMissing('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_PAYMENT_RECEIVED,
+            'id_pemesanan' => $pemesanan->id,
+        ]);
+
+        Sanctum::actingAs($owner);
+        $this->getJson('/api/notifikasi')->assertOk();
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_PAYMENT_RECEIVED,
+            'id_pemesanan' => $pemesanan->id,
+        ]);
+    }
+
+    public function test_owner_notification_index_backfills_current_low_stock_spareparts(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_COMPLETED);
+
+        $owner = $this->buatPengguna('pemilik');
+        $sukuCadang = $skenario['suku_cadang'];
+
+        $sukuCadang->jumlah_stok = 1;
+        $sukuCadang->batas_minimal_stok = 2;
+        $sukuCadang->save();
+
+        $pesan = "Stok {$sukuCadang->nama_suku_cadang} menipis ({$sukuCadang->jumlah_stok} tersisa, batas minimal {$sukuCadang->batas_minimal_stok}).";
+
+        $this->assertDatabaseMissing('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_LOW_STOCK,
+            'judul' => 'Stok Menipis',
+            'pesan' => $pesan,
+        ]);
+
+        Sanctum::actingAs($owner);
+        $this->getJson('/api/notifikasi')->assertOk();
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna' => $owner->id,
+            'tipe' => Notification::TYPE_LOW_STOCK,
+            'judul' => 'Stok Menipis',
+            'pesan' => $pesan,
+        ]);
     }
 
     /**

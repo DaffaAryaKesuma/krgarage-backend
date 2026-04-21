@@ -34,6 +34,7 @@ class Notification extends Model
     const TYPE_BOOKING_CANCELLED   = 'booking_cancelled';
     const TYPE_BOOKING_ASSIGNED    = 'booking_assigned';
     const TYPE_LOW_STOCK           = 'low_stock';
+    const TYPE_PAYMENT_RECEIVED    = 'payment_received';
 
     /**
      * Relasi: Notifikasi milik seorang pengguna.

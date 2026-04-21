@@ -4,11 +4,19 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Sparepart;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class AdminSparepartController extends Controller
 {
+    protected $layananNotifikasi;
+
+    public function __construct(NotificationService $layananNotifikasi)
+    {
+        $this->layananNotifikasi = $layananNotifikasi;
+    }
+
     /**
      * Menampilkan daftar suku cadang dengan filter opsional.
      */
@@ -83,6 +91,8 @@ class AdminSparepartController extends Controller
                 'deskripsi'          => $request->deskripsi,
             ]);
 
+            $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang->fresh());
+
             return response()->json([
                 'success' => true,
                 'message' => 'Suku cadang berhasil ditambahkan',
@@ -143,12 +153,25 @@ class AdminSparepartController extends Controller
         }
 
         try {
+            $stokSebelum = (int) $sukuCadang->jumlah_stok;
+            $batasMinimalSebelum = (int) $sukuCadang->batas_minimal_stok;
+
             $sukuCadang->update($request->all());
+            $sukuCadang = $sukuCadang->fresh();
+
+            if ($request->has('jumlah_stok')) {
+                $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang, $stokSebelum);
+            } elseif (
+                $request->has('batas_minimal_stok') &&
+                $batasMinimalSebelum !== (int) $sukuCadang->batas_minimal_stok
+            ) {
+                $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang);
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Suku cadang berhasil diperbarui',
-                'data'    => $sukuCadang->fresh(),
+                'data'    => $sukuCadang,
             ], 200);
 
         } catch (\Exception $e) {

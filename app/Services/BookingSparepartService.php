@@ -112,22 +112,33 @@ class BookingSparepartService
     /**
      * Kurangi stok suku cadang saat pemesanan selesai.
      */
-    public function kurangiStokSukuCadang(Booking $pemesanan): void
+    public function kurangiStokSukuCadang(Booking $pemesanan): array
     {
         $daftarItem = $pemesanan->itemPemesanan()->with('sukuCadang')->get();
+        $ringkasanPerubahanStok = [];
 
         foreach ($daftarItem as $item) {
             if ($item->sukuCadang) {
                 $sukuCadang = $item->sukuCadang;
-                $sukuCadang->jumlah_stok -= $item->jumlah;
+                $stokSebelum = (int) $sukuCadang->jumlah_stok;
+                $stokSesudah = $stokSebelum - (int) $item->jumlah;
 
                 // Mencegah stok menjadi negatif
-                if ($sukuCadang->jumlah_stok < 0) {
-                    $sukuCadang->jumlah_stok = 0;
+                if ($stokSesudah < 0) {
+                    $stokSesudah = 0;
                 }
 
+                $sukuCadang->jumlah_stok = $stokSesudah;
                 $sukuCadang->save();
+
+                $ringkasanPerubahanStok[] = [
+                    'suku_cadang' => $sukuCadang->fresh(),
+                    'stok_sebelum' => $stokSebelum,
+                    'stok_sesudah' => $stokSesudah,
+                ];
             }
         }
+
+        return $ringkasanPerubahanStok;
     }
 }

@@ -106,7 +106,14 @@ class AdminBookingController extends Controller
         // Trigger notifikasi berdasarkan status baru
         if ($statusBaru === Booking::STATUS_COMPLETED && $statusLama !== Booking::STATUS_COMPLETED) {
             // Kurangi stok suku cadang saat pemesanan selesai
-            $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+            $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+
+            foreach ($ringkasanPerubahanStok as $perubahanStok) {
+                $this->layananNotifikasi->notifikasiPemilikStokMenipis(
+                    $perubahanStok['suku_cadang'],
+                    $perubahanStok['stok_sebelum']
+                );
+            }
 
             // Perbarui tanggal servis terakhir di vespa
             if ($pemesanan->vespa) {
@@ -155,6 +162,10 @@ class AdminBookingController extends Controller
 
         $pemesanan->status_pembayaran = $statusPembayaranBaru;
         $pemesanan->save();
+
+        if ($statusPembayaranBaru === Booking::PAYMENT_STATUS_PAID) {
+            $this->layananNotifikasi->notifikasiPemilikPembayaranDiterima($pemesanan);
+        }
 
         return response()->json([
             'message'   => 'Status pembayaran berhasil diperbarui!',
