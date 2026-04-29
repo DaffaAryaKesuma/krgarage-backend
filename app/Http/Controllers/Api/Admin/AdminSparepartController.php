@@ -68,7 +68,7 @@ class AdminSparepartController extends Controller
             'jumlah_stok'        => 'required|integer|min:0',
             'harga_beli'         => 'required|numeric|min:0',
             'harga_jual'         => 'required|numeric|min:0',
-            'batas_minimal_stok' => 'nullable|integer|min:0',
+            'batas_minimal_stok' => 'required|integer|min:0',
             'deskripsi'          => 'nullable|string',
         ]);
 
@@ -87,7 +87,7 @@ class AdminSparepartController extends Controller
                 'jumlah_stok'        => $request->jumlah_stok,
                 'harga_beli'         => $request->harga_beli,
                 'harga_jual'         => $request->harga_jual,
-                'batas_minimal_stok' => $request->batas_minimal_stok ?? 5,
+                'batas_minimal_stok' => $request->batas_minimal_stok,
                 'deskripsi'          => $request->deskripsi,
             ]);
 
@@ -137,7 +137,6 @@ class AdminSparepartController extends Controller
         $validator = Validator::make($request->all(), [
             'nama_suku_cadang'   => 'sometimes|string|max:255',
             'kategori'           => 'sometimes|string|max:255',
-            'jumlah_stok'        => 'sometimes|integer|min:0',
             'harga_beli'         => 'sometimes|numeric|min:0',
             'harga_jual'         => 'sometimes|numeric|min:0',
             'batas_minimal_stok' => 'sometimes|integer|min:0',
@@ -153,15 +152,19 @@ class AdminSparepartController extends Controller
         }
 
         try {
-            $stokSebelum = (int) $sukuCadang->jumlah_stok;
             $batasMinimalSebelum = (int) $sukuCadang->batas_minimal_stok;
 
-            $sukuCadang->update($request->all());
+            $sukuCadang->update($request->only([
+                'nama_suku_cadang',
+                'kategori',
+                'harga_beli',
+                'harga_jual',
+                'batas_minimal_stok',
+                'deskripsi',
+            ]));
             $sukuCadang = $sukuCadang->fresh();
 
-            if ($request->has('jumlah_stok')) {
-                $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang, $stokSebelum);
-            } elseif (
+            if (
                 $request->has('batas_minimal_stok') &&
                 $batasMinimalSebelum !== (int) $sukuCadang->batas_minimal_stok
             ) {

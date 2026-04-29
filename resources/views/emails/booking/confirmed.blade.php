@@ -1,15 +1,15 @@
 <x-mail::message>
-# Halo, {{ $booking->pengguna->nama }}!
+# Halo, {{ $pemesanan->pengguna->nama }}!
 
 Terima kasih telah melakukan pemesanan servis di **KRGarage**. 
 Pesanan Anda telah berhasil kami terima. Berikut adalah rincian jadwal Anda:
 
-**Detail Kendaraan:** {{ $booking->vespa->model ?? 'Vespa' }} ({{ $booking->vespa->plat_nomor ?? '-' }})  
-**Tanggal Datang:** {{ \Carbon\Carbon::parse($booking->tanggal_pemesanan)->locale('id')->translatedFormat('l, d F Y') }}  
-**Tujuan Servis:** {{ $booking->layanan->pluck('nama_layanan')->join(', ') }}  
-**Catatan:**  {{ $booking->catatan_pelanggan ?? 'Tidak ada catatan tambahan' }}
+**Detail Kendaraan:** {{ $pemesanan->vespa->model ?? 'Vespa' }} ({{ $pemesanan->vespa->plat_nomor ?? '-' }})  
+**Tanggal Datang:** {{ \Carbon\Carbon::parse($pemesanan->tanggal_pemesanan)->locale('id')->translatedFormat('l, d F Y') }}  
+**Tujuan Servis:** {{ $pemesanan->layanan->pluck('nama_layanan')->join(', ') }}  
+**Catatan:**  {{ $pemesanan->catatan_pelanggan ?? 'Tidak ada catatan tambahan' }}
 
-<x-mail::button :url="'http://localhost:5173/app/riwayat'">
+<x-mail::button url="http://localhost:5173/app/riwayat/{{ $pemesanan->id }}" color="primary">
 Cek Status Pesanan
 </x-mail::button>
 

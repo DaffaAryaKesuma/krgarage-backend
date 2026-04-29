@@ -36,7 +36,7 @@ class AdminServiceController extends Controller
     /**
      * Memperbarui data layanan yang sudah ada.
      */
-    public function update(Request $request, Service $layanan)
+    public function update(Request $request, Service $service)
     {
         $dataTervalidasi = $request->validate([
             'nama_layanan'     => 'required|string|max:255',
@@ -48,30 +48,30 @@ class AdminServiceController extends Controller
 
         if ($request->hasFile('gambar')) {
             // Hapus gambar lama jika ada
-            if ($layanan->gambar) {
-                Storage::disk('public')->delete($layanan->gambar);
+            if ($service->gambar) {
+                Storage::disk('public')->delete($service->gambar);
             }
             // Upload gambar baru
             $pathGambar              = $request->file('gambar')->store('services', 'public');
             $dataTervalidasi['gambar'] = $pathGambar;
         }
 
-        $layanan->update($dataTervalidasi);
+        $service->update($dataTervalidasi);
 
-        return response()->json($layanan->fresh());
+        return response()->json($service->fresh());
     }
 
     /**
      * Menghapus data layanan.
      */
-    public function destroy(Service $layanan)
+    public function destroy(Service $service)
     {
         // Hapus file gambar fisik saat data dihapus
-        if ($layanan->gambar) {
-            Storage::disk('public')->delete($layanan->gambar);
+        if ($service->gambar) {
+            Storage::disk('public')->delete($service->gambar);
         }
 
-        $layanan->delete();
+        $service->delete();
 
         return response()->json(['message' => 'Layanan berhasil dihapus']);
     }

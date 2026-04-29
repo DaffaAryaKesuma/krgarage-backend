@@ -99,7 +99,11 @@ class Booking extends Model
      */
     public function recalculateTotalHarga(): void
     {
-        $totalLayanan = $this->layanan()->sum('harga');
+        $totalLayanan = $this->layanan()
+            ->get()
+            ->sum(function ($layanan) {
+                return (float) ($layanan->pivot->harga_saat_pesan ?? $layanan->harga);
+            });
 
         $totalSukuCadang = $this->itemPemesanan()
             ->whereNotNull('id_suku_cadang')

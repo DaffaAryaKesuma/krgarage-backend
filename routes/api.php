@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 use App\Http\Controllers\Api\Admin\AdminFinancialReportController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
+use App\Http\Controllers\Api\Admin\AdminInventoryCategoryController;
 use App\Http\Controllers\Api\Admin\AdminSparepartController;
 use App\Http\Controllers\Api\Mekanik\MekanikDashboardController;
 use App\Http\Controllers\Api\Pemilik\PemilikController;
@@ -66,6 +67,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('/laporan/keuangan', [AdminFinancialReportController::class, 'index']);
 
     // Rute untuk manajemen inventori (suku cadang)
+    Route::get('/inventori/kategori', [AdminInventoryCategoryController::class, 'index']);
+    Route::post('/inventori/kategori', [AdminInventoryCategoryController::class, 'store']);
     Route::get('/inventori', [AdminSparepartController::class, 'index']);
     Route::get('/inventori/stok-menipis', [AdminSparepartController::class, 'peringatanStokMenipis']);
     Route::post('/inventori', [AdminSparepartController::class, 'store']);

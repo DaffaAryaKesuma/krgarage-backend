@@ -62,7 +62,7 @@ class BookingController extends Controller
         $pemesanan->load([
             'pengguna:id,nama,email',
             'vespa:id,model,plat_nomor,tahun_produksi',
-            'layanan:id,nama_layanan,harga',
+            'layanan:id,nama_layanan',
             'mekanik:id,nama,email',
             'itemPemesanan.sukuCadang:id,nama_suku_cadang,kategori',
         ]);
