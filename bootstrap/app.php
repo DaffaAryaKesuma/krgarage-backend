@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/');
 
         $middleware->alias([
-        'role' => \App\Http\Middleware\CheckRole::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
+            'update_last_seen' => \App\Http\Middleware\UpdateUserLastSeen::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

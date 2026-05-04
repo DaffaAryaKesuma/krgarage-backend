@@ -24,6 +24,20 @@ Route::get('/layanan', [ServiceController::class, 'index']);
 // Rute untuk semua pengguna terautentikasi
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/keluar', [AuthController::class, 'keluar']);
+    
+    // Ping endpoint untuk update last_seen user
+    Route::post('/ping', function (Request $request) {
+        if ($user = $request->user()) {
+            try {
+                $user->timestamps = false;
+                $user->last_seen = \Carbon\Carbon::now();
+                $user->save();
+            } catch (\Exception $e) {
+                \Log::warning('Ping error: ' . $e->getMessage());
+            }
+        }
+        return response()->json(['status' => 'ok']);
+    });
 
     // Rute notifikasi untuk semua pengguna login (data tetap dipagari per user di controller)
     Route::get('/notifikasi', [NotificationController::class, 'index']);
@@ -104,4 +118,5 @@ Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(fu
     Route::get('/layanan-terpopuler', [PemilikController::class, 'layananTerpopuler']);
     Route::get('/suku-cadang-terlaris', [PemilikController::class, 'sukuCadangTerlaris']);
     Route::get('/stok-menipis', [PemilikController::class, 'stokMenipis']);
+    Route::get('/mekanik-online', [PemilikController::class, 'getOnlineMechanicsCount']);
 });

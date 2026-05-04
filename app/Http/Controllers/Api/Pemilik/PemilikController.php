@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pemilik;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\User;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Sparepart;
@@ -311,6 +312,26 @@ class PemilikController extends Controller
 
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+        }
+    }
+
+    /**
+     * Mendapatkan jumlah mekanik yang sedang online (last_seen dalam 5 menit terakhir).
+     */
+    public function getOnlineMechanicsCount(Request $request)
+    {
+        try {
+            $count = User::where('role', 'mekanik')
+                ->where('last_seen', '>=', Carbon::now()->subMinutes(5))
+                ->count();
+
+            return response()->json([
+                'count' => $count,
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error mendapatkan jumlah mekanik online: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage(), 'count' => 0], 500);
         }
     }
 }
