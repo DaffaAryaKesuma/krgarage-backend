@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Admin\AdminFinancialReportController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
 use App\Http\Controllers\Api\Admin\AdminInventoryCategoryController;
 use App\Http\Controllers\Api\Admin\AdminSparepartController;
+use App\Http\Controllers\Api\Admin\KaryawanController;
 use App\Http\Controllers\Api\Mekanik\MekanikDashboardController;
 use App\Http\Controllers\Api\Pemilik\PemilikController;
 
@@ -98,6 +99,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     // Rute untuk penugasan mekanik
     Route::get('/mekanik', [AdminBookingController::class, 'daftarMekanik']);
     Route::patch('/pemesanan/{pemesanan}/tugaskan-mekanik', [AdminBookingController::class, 'tugaskanMekanik']);
+
+    // Rute untuk manajemen karyawan (admin & mekanik)
+    Route::get('/karyawan', [KaryawanController::class, 'index']);
+    Route::post('/karyawan', [KaryawanController::class, 'store']);
+    Route::put('/karyawan/{id}', [KaryawanController::class, 'update']);
+    Route::delete('/karyawan/{id}', [KaryawanController::class, 'destroy']);
 });
 
 // Rute untuk mekanik
