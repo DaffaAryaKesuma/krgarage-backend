@@ -53,6 +53,7 @@ class AdminBookingController extends Controller
     {
         $dataTervalidasi = $request->validate([
             'status' => 'required|string|in:Pending,Confirmed,In Progress,Completed,Cancelled',
+            'catatan_mekanik' => 'required_if:status,Completed|string|max:1000',
         ]);
 
         $statusBaru = $dataTervalidasi['status'];
@@ -99,6 +100,10 @@ class AdminBookingController extends Controller
 
         if ($statusBaru === Booking::STATUS_COMPLETED && $pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
             $pemesanan->status_pembayaran = Booking::PAYMENT_STATUS_UNPAID;
+        }
+
+        if (isset($dataTervalidasi['catatan_mekanik'])) {
+            $pemesanan->catatan_mekanik = $dataTervalidasi['catatan_mekanik'];
         }
 
         $pemesanan->save();
