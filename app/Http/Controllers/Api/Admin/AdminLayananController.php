@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Service;
+use App\Models\Layanan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-class AdminServiceController extends Controller
+class AdminLayananController extends Controller
 {
     /**
      * Menyimpan data layanan baru.
@@ -28,7 +28,7 @@ class AdminServiceController extends Controller
             $dataTervalidasi['gambar'] = $pathGambar;
         }
 
-        $layanan = Service::create($dataTervalidasi);
+        $layanan = Layanan::create($dataTervalidasi);
 
         return response()->json($layanan, 201);
     }
@@ -36,7 +36,7 @@ class AdminServiceController extends Controller
     /**
      * Memperbarui data layanan yang sudah ada.
      */
-    public function update(Request $request, Service $service)
+    public function update(Request $request, Layanan $service)
     {
         $dataTervalidasi = $request->validate([
             'nama_layanan'     => 'required|string|max:255',
@@ -64,7 +64,7 @@ class AdminServiceController extends Controller
     /**
      * Menghapus data layanan.
      */
-    public function destroy(Service $service)
+    public function destroy(Layanan $service)
     {
         // Hapus file gambar fisik saat data dihapus
         if ($service->gambar) {

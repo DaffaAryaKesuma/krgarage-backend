@@ -1,0 +1,12 @@
+<?php
+namespace App\Http\Requests\Admin;
+use Illuminate\Foundation\Http\FormRequest;
+
+class TugaskanMekanikRequest extends FormRequest {
+    public function authorize(): bool { return true; }
+    public function rules(): array {
+        return [
+            'id_mekanik' => 'nullable|exists:pengguna,id',
+        ];
+    }
+}

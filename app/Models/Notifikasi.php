@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Notification extends Model
+class Notifikasi extends Model
 {
     use HasFactory;
 
@@ -49,7 +49,7 @@ class Notification extends Model
      */
     public function pemesanan()
     {
-        return $this->belongsTo(Booking::class, 'id_pemesanan');
+        return $this->belongsTo(Pemesanan::class, 'id_pemesanan');
     }
 
     /**
@@ -68,3 +68,4 @@ class Notification extends Model
         $this->update(['sudah_dibaca' => true]);
     }
 }
+

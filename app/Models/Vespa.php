@@ -46,7 +46,7 @@ class Vespa extends Model
      */
     public function pemesanan(): HasMany
     {
-        return $this->hasMany(Booking::class, 'id_vespa');
+        return $this->hasMany(Pemesanan::class, 'id_vespa');
     }
 
     /**
@@ -108,7 +108,7 @@ class Vespa extends Model
     /**
      * Perbarui tanggal servis setelah pemesanan selesai.
      */
-    public function perbaruiTanggalServisDariPemesanan(Booking $pemesanan): void
+    public function perbaruiTanggalServisDariPemesanan(Pemesanan $pemesanan): void
     {
         $this->tanggal_servis_terakhir    = $pemesanan->tanggal_pemesanan;
         $jedaHariServis                   = $this->jeda_hari_servis ?? 30;
@@ -138,9 +138,9 @@ class Vespa extends Model
     public function scopeDenganTanggalServisTerakhir($query)
     {
         return $query->addSelect([
-            'last_completed_booking_date' => Booking::select('tanggal_pemesanan')
+            'last_completed_booking_date' => Pemesanan::select('tanggal_pemesanan')
                 ->whereColumn('id_vespa', 'vespa.id')
-                ->where('status', Booking::STATUS_COMPLETED)
+                ->where('status', Pemesanan::STATUS_SELESAI)
                 ->orderBy('tanggal_pemesanan', 'desc')
                 ->orderBy('jam_pemesanan', 'desc')
                 ->limit(1)
@@ -163,3 +163,4 @@ class Vespa extends Model
         }
     }
 }
+

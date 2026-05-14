@@ -17,7 +17,7 @@ return new class extends Migration
             });
 
             // Generate booking code untuk data yang sudah ada
-            $bookings = \App\Models\Booking::whereNull('kode_pemesanan')->get();
+            $bookings = \App\Models\Pemesanan::whereNull('kode_pemesanan')->get();
             foreach ($bookings as $booking) {
                 $booking->kode_pemesanan = 'BKG-' . strtoupper(substr(uniqid(), -8));
                 $booking->save();
@@ -42,3 +42,4 @@ return new class extends Migration
         }
     }
 };
+

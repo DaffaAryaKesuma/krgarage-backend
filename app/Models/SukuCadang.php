@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Sparepart extends Model
+class SukuCadang extends Model
 {
     use HasFactory;
 
@@ -39,7 +39,7 @@ class Sparepart extends Model
      */
     public function itemPemesanan()
     {
-        return $this->hasMany(BookingItem::class, 'id_suku_cadang');
+        return $this->hasMany(ItemPemesanan::class, 'id_suku_cadang');
     }
 
     /**
@@ -58,3 +58,4 @@ class Sparepart extends Model
         return $query->whereRaw('jumlah_stok <= batas_minimal_stok');
     }
 }
+

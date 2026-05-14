@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Api\Pelanggan;
 
 use App\Http\Controllers\Controller;
-use App\Models\Notification;
-use App\Services\NotificationService;
+use App\Models\Notifikasi;
+use App\Services\NotifikasiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class NotificationController extends Controller
+class NotifikasiController extends Controller
 {
     protected $layananNotifikasi;
 
-    public function __construct(NotificationService $layananNotifikasi)
+    public function __construct(NotifikasiService $layananNotifikasi)
     {
         $this->layananNotifikasi = $layananNotifikasi;
     }
@@ -33,12 +33,12 @@ class NotificationController extends Controller
             }
         }
 
-        $daftarNotifikasi = Notification::where('id_pengguna', Auth::id())
+        $daftarNotifikasi = Notifikasi::where('id_pengguna', Auth::id())
             ->with('pemesanan')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $jumlahBelumDibaca = Notification::where('id_pengguna', Auth::id())
+        $jumlahBelumDibaca = Notifikasi::where('id_pengguna', Auth::id())
             ->belumDibaca()
             ->count();
 
@@ -53,7 +53,7 @@ class NotificationController extends Controller
      */
     public function tandaiDibaca($id)
     {
-        $notifikasi = Notification::where('id_pengguna', Auth::id())
+        $notifikasi = Notifikasi::where('id_pengguna', Auth::id())
             ->findOrFail($id);
 
         $notifikasi->tandaiDibaca();
@@ -66,10 +66,11 @@ class NotificationController extends Controller
      */
     public function tandaiSemuaDibaca()
     {
-        Notification::where('id_pengguna', Auth::id())
+        Notifikasi::where('id_pengguna', Auth::id())
             ->belumDibaca()
             ->update(['sudah_dibaca' => true]);
 
         return response()->json(['message' => 'Semua notifikasi berhasil ditandai sebagai sudah dibaca']);
     }
 }
+

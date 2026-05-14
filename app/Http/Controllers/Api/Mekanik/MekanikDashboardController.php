@@ -3,19 +3,26 @@
 namespace App\Http\Controllers\Api\Mekanik;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
-use App\Models\BookingItem;
-use App\Services\NotificationService;
-use App\Services\BookingSparepartService;
+use App\Models\Pemesanan;
+use App\Models\ItemPemesanan;
+use App\Services\NotifikasiService;
+use App\Services\PemesananSukuCadangService;
+use App\Traits\ApiResponseTrait;
+use App\Http\Requests\Mekanik\UpdateStatusPemesananMekanikRequest;
+use App\Http\Requests\Mekanik\TambahSukuCadangRequest;
+use App\Http\Resources\PemesananResource;
+use App\Http\Resources\SukuCadangResource;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class MekanikDashboardController extends Controller
 {
+    use ApiResponseTrait;
+
     protected $layananNotifikasi;
     protected $layananSukuCadang;
 
-    public function __construct(NotificationService $layananNotifikasi, BookingSparepartService $layananSukuCadang)
+    public function __construct(NotifikasiService $layananNotifikasi, PemesananSukuCadangService $layananSukuCadang)
     {
         $this->layananNotifikasi = $layananNotifikasi;
         $this->layananSukuCadang = $layananSukuCadang;
@@ -23,7 +30,6 @@ class MekanikDashboardController extends Controller
 
     /**
      * Menampilkan daftar pekerjaan mekanik (pemesanan yang ditugaskan).
-     * Mendukung pagination dan filter berdasarkan status, bulan, tahun.
      */
     public function index(Request $request)
     {
@@ -33,18 +39,15 @@ class MekanikDashboardController extends Controller
             $bulan      = $request->query('month');
             $tahun      = $request->query('year');
 
-            $query = Booking::with(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang'])
-                ->where('id_mekanik', $idMekanik); // Filter hanya pemesanan yang ditugaskan ke mekanik ini
+            $query = Pemesanan::with(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang'])
+                ->where('id_mekanik', $idMekanik);
 
-            // Filter berdasarkan status - jika tidak ada, tampilkan semua pemesanan yang ditugaskan
             if ($request->has('status')) {
-                $query->where('status', $request->status);
+                $query->where('status', $request->query('status'));
             }
 
-            // Filter berdasarkan bulan dan tahun jika tersedia
             if ($bulan && $tahun) {
-                $query->whereYear('tanggal_pemesanan', $tahun)
-                      ->whereMonth('tanggal_pemesanan', $bulan);
+                $query->whereYear('tanggal_pemesanan', $tahun)->whereMonth('tanggal_pemesanan', $bulan);
             } elseif ($tahun) {
                 $query->whereYear('tanggal_pemesanan', $tahun);
             } elseif ($bulan) {
@@ -55,21 +58,18 @@ class MekanikDashboardController extends Controller
                 ->orderBy('jam_pemesanan', 'desc')
                 ->paginate($perHalaman);
 
-            return response()->json($daftarPemesanan, 200);
+            return PemesananResource::collection($daftarPemesanan);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memuat daftar pekerjaan',
-                'error'   => $e->getMessage(),
-            ], 500);
+            Log::error('MekanikDashboardController@index: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat daftar pekerjaan', 500, $e);
         }
     }
 
     /**
      * Menampilkan detail satu pemesanan.
      */
-    public function show(Booking $pemesanan)
+    public function show(Pemesanan $pemesanan)
     {
         try {
             if ($responAkses = $this->pastikanMekanikDitugaskan(auth()->user()->id, $pemesanan)) {
@@ -78,210 +78,118 @@ class MekanikDashboardController extends Controller
 
             $pemesanan = $this->layananSukuCadang->ambilPemesananDenganRelasi($pemesanan);
 
-            return response()->json($pemesanan, 200);
+            return $this->successResponse('Detail pemesanan berhasil dimuat', new PemesananResource($pemesanan));
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memuat detail pemesanan',
-                'error'   => $e->getMessage(),
-            ], 500);
+            Log::error('MekanikDashboardController@show: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat detail pemesanan', 500, $e);
         }
     }
 
     /**
      * Memperbarui status pemesanan oleh mekanik.
      */
-    public function updateStatus(Request $request, Booking $pemesanan)
-    {
-        if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
-            return $responAkses;
-        }
-
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|in:Completed',
-            'catatan_mekanik' => 'required|string|max:1000',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak valid',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $statusLama = $pemesanan->status;
-            $statusBaru = $request->status;
-            $catatanMekanik = trim((string) $request->catatan_mekanik);
-
-            if ($catatanMekanik === '') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak valid',
-                    'errors'  => [
-                        'catatan_mekanik' => ['Catatan mekanik wajib diisi.'],
-                    ],
-                ], 422);
-            }
-
-            if (in_array($statusLama, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Status pemesanan yang sudah selesai atau dibatalkan tidak dapat diubah lagi.',
-                ], 400);
-            }
-
-            if ($statusLama !== Booking::STATUS_IN_PROGRESS) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Mekanik hanya dapat menyelesaikan pemesanan yang berstatus sedang dikerjakan.',
-                ], 400);
-            }
-
-            // Jika selesai, kurangi stok suku cadang secara otomatis
-            if ($statusBaru === Booking::STATUS_COMPLETED) {
-                $adaSukuCadang = $pemesanan->itemPemesanan()->exists();
-
-                if ($adaSukuCadang) {
-                    $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
-
-                    foreach ($ringkasanPerubahanStok as $perubahanStok) {
-                        $this->layananNotifikasi->notifikasiPemilikStokMenipis(
-                            $perubahanStok['suku_cadang'],
-                            $perubahanStok['stok_sebelum']
-                        );
-                    }
-                }
-
-                // Perbarui tanggal servis terakhir & berikutnya di tabel vespa
-                $vespa = $pemesanan->vespa;
-                if ($vespa) {
-                    $vespa->perbaruiTanggalServisDariPemesanan($pemesanan);
-                }
-            }
-
-            $pemesanan->status = $statusBaru;
-
-            if ($statusBaru === Booking::STATUS_COMPLETED && $pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
-                $pemesanan->status_pembayaran = Booking::PAYMENT_STATUS_UNPAID;
-            }
-
-            $pemesanan->catatan_mekanik = $catatanMekanik;
-            $pemesanan->save();
-
-            // Kirim notifikasi ke pelanggan berdasarkan perubahan status
-            if ($statusBaru === Booking::STATUS_COMPLETED) {
-                $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Status pemesanan berhasil diperbarui',
-                'data'    => $pemesanan->fresh(['itemPemesanan.sukuCadang']),
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memperbarui status pemesanan',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Menambahkan suku cadang ke pemesanan.
-     */
-    public function tambahSukuCadang(Request $request, Booking $pemesanan)
-    {
-        if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
-            return $responAkses;
-        }
-
-        if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) {
-            return $responStatus;
-        }
-
-        $validator = Validator::make($request->all(), [
-            'id_suku_cadang' => 'required|exists:suku_cadang,id',
-            'jumlah'         => 'required|integer|min:1',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak valid',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $hasil = $this->layananSukuCadang->tambahSukuCadang(
-                $pemesanan,
-                $request->id_suku_cadang,
-                $request->jumlah
-            );
-
-            if (!$hasil['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $hasil['message'],
-                ], 400);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => $hasil['message'],
-                'data'    => $hasil['data'],
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menambahkan suku cadang ke pemesanan',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Menghapus suku cadang dari pemesanan.
-     */
-    public function hapusSukuCadang(Request $request, Booking $pemesanan, BookingItem $itemPemesanan)
+    public function updateStatus(UpdateStatusPemesananMekanikRequest $request, Pemesanan $pemesanan)
     {
         try {
             if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) {
                 return $responAkses;
             }
 
-            if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) {
-                return $responStatus;
+            $data = $request->validated();
+            $statusLama = $pemesanan->status;
+            $statusBaru = $data['status'];
+            $catatanMekanik = trim($data['catatan_mekanik']);
+
+            if ($catatanMekanik === '') {
+                return $this->errorResponse('Data tidak valid: Catatan mekanik wajib diisi.', 422);
             }
 
-            // Verifikasi item pemesanan milik pemesanan ini
-            if ($itemPemesanan->id_pemesanan !== $pemesanan->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Item pemesanan tidak ditemukan',
-                ], 404);
+            if (in_array($statusLama, [Pemesanan::STATUS_SELESAI, Pemesanan::STATUS_BATAL], true)) {
+                return $this->errorResponse('Status pemesanan yang dibatalkan atau selesai tidak bisa diubah.', 400);
             }
 
-            $hasil      = $this->layananSukuCadang->hapusSukuCadang($pemesanan, $itemPemesanan->id);
-            $kodeStatus = $hasil['status_code'] ?? 200;
+            if ($statusLama !== Pemesanan::STATUS_DIKERJAKAN) {
+                return $this->errorResponse('Mekanik hanya bisa menyelesaikan servis yang statusnya In Progress.', 400);
+            }
 
-            return response()->json([
-                'success' => $hasil['success'],
-                'message' => $hasil['message'],
-            ], $kodeStatus);
+            $this->handleCompletionEffects($pemesanan, $statusBaru);
+
+            $pemesanan->status = $statusBaru;
+            if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->status_pembayaran !== Pemesanan::PAYMENT_STATUS_PAID) {
+                $pemesanan->status_pembayaran = Pemesanan::PAYMENT_STATUS_UNPAID;
+            }
+
+            $pemesanan->catatan_mekanik = $catatanMekanik;
+            $pemesanan->save();
+
+            if ($statusBaru === Pemesanan::STATUS_SELESAI) {
+                $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
+            }
+
+            return $this->successResponse(
+                'Status pemesanan berhasil diperbarui', 
+                new PemesananResource($pemesanan->fresh(['itemPemesanan.sukuCadang']))
+            );
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus suku cadang',
-                'error'   => $e->getMessage(),
-            ], 500);
+            Log::error('MekanikDashboardController@updateStatus: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memperbarui status pemesanan', 500, $e);
+        }
+    }
+
+    /**
+     * Menambahkan suku cadang ke pemesanan.
+     */
+    public function tambahSukuCadang(TambahSukuCadangRequest $request, Pemesanan $pemesanan)
+    {
+        try {
+            if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) return $responAkses;
+            if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) return $responStatus;
+
+            $data = $request->validated();
+            
+            $hasil = $this->layananSukuCadang->tambahSukuCadang(
+                $pemesanan,
+                $data['id_suku_cadang'],
+                $data['jumlah']
+            );
+
+            if (!$hasil['success']) {
+                return $this->errorResponse($hasil['message'], 400);
+            }
+
+            return $this->successResponse($hasil['message'], $hasil['data'], 201);
+
+        } catch (\Exception $e) {
+            Log::error('MekanikDashboardController@tambahSukuCadang: ' . $e->getMessage());
+            return $this->errorResponse('Gagal menambahkan suku cadang ke pemesanan', 500, $e);
+        }
+    }
+
+    /**
+     * Menghapus suku cadang dari pemesanan.
+     */
+    public function hapusSukuCadang(Request $request, Pemesanan $pemesanan, ItemPemesanan $itemPemesanan)
+    {
+        try {
+            if ($responAkses = $this->pastikanMekanikDitugaskan($request->user()->id, $pemesanan)) return $responAkses;
+            if ($responStatus = $this->pastikanPemesananMasihBisaDimodifikasi($pemesanan)) return $responStatus;
+
+            if ($itemPemesanan->id_pemesanan !== $pemesanan->id) {
+                return $this->errorResponse('Item pemesanan tidak ditemukan.', 404);
+            }
+
+            $hasil = $this->layananSukuCadang->hapusSukuCadang($pemesanan, $itemPemesanan->id);
+            $kodeStatus = $hasil['status_code'] ?? 200;
+
+            if (!$hasil['success']) return $this->errorResponse($hasil['message'], $kodeStatus);
+
+            return $this->successResponse($hasil['message']);
+
+        } catch (\Exception $e) {
+            Log::error('MekanikDashboardController@hapusSukuCadang: ' . $e->getMessage());
+            return $this->errorResponse('Gagal menghapus suku cadang', 500, $e);
         }
     }
 
@@ -292,19 +200,10 @@ class MekanikDashboardController extends Controller
     {
         try {
             $daftarSukuCadang = $this->layananSukuCadang->ambilSukuCadangTersedia();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Daftar suku cadang tersedia berhasil dimuat',
-                'data'    => $daftarSukuCadang,
-            ], 200);
-
+            return $this->successResponse('Daftar suku cadang berhasil dimuat', SukuCadangResource::collection($daftarSukuCadang));
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memuat daftar suku cadang',
-                'error'   => $e->getMessage(),
-            ], 500);
+            Log::error('MekanikDashboardController@daftarSukuCadangTersedia: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat daftar suku cadang', 500, $e);
         }
     }
 
@@ -316,62 +215,51 @@ class MekanikDashboardController extends Controller
         try {
             $idMekanik = $request->user()->id;
 
-            $query = Booking::with(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang'])
-                ->where('status', Booking::STATUS_COMPLETED)
+            $query = Pemesanan::with(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang'])
+                ->where('status', Pemesanan::STATUS_SELESAI)
                 ->where('id_mekanik', $idMekanik);
 
-            // Opsional: batasi ke riwayat terbaru (misalnya 30 hari terakhir)
             if ($request->has('days')) {
-                $hari = (int) $request->days;
-                $query->where('updated_at', '>=', now()->subDays($hari));
+                $query->where('updated_at', '>=', now()->subDays((int)$request->days));
             }
 
-            $daftarPemesanan = $query->orderBy('updated_at', 'desc')
-                ->limit(50) // Batasi ke 50 pemesanan terbaru
-                ->get();
+            $daftarPemesanan = $query->orderBy('updated_at', 'desc')->limit(50)->get();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Riwayat pekerjaan berhasil dimuat',
-                'data'    => $daftarPemesanan,
-            ], 200);
+            return $this->successResponse('Riwayat pekerjaan berhasil dimuat', PemesananResource::collection($daftarPemesanan));
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memuat riwayat pekerjaan',
-                'error'   => $e->getMessage(),
-            ], 500);
+            Log::error('MekanikDashboardController@riwayat: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat riwayat pekerjaan', 500, $e);
         }
     }
 
-    /**
-     * Pastikan hanya mekanik yang ditugaskan yang boleh mengakses / memodifikasi pemesanan.
-     */
-    private function pastikanMekanikDitugaskan(int $idMekanikLogin, Booking $pemesanan)
+    private function handleCompletionEffects(Pemesanan $pemesanan, $statusBaru)
+    {
+        if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->itemPemesanan()->exists()) {
+            $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+            foreach ($ringkasanPerubahanStok as $perubahan) {
+                $this->layananNotifikasi->notifikasiPemilikStokMenipis($perubahan['suku_cadang'], $perubahan['stok_sebelum']);
+            }
+        }
+        if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->vespa) {
+            $pemesanan->vespa->perbaruiTanggalServisDariPemesanan($pemesanan);
+        }
+    }
+
+    private function pastikanMekanikDitugaskan(int $idMekanikLogin, Pemesanan $pemesanan)
     {
         if ((int) $pemesanan->id_mekanik !== $idMekanikLogin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses ke pemesanan ini.',
-            ], 403);
+            return $this->errorResponse('Anda tidak memiliki akses ke pemesanan ini.', 403);
         }
-
         return null;
     }
 
-    /**
-     * Pastikan pemesanan yang dimodifikasi mekanik belum berstatus final.
-     */
-    private function pastikanPemesananMasihBisaDimodifikasi(Booking $pemesanan)
+    private function pastikanPemesananMasihBisaDimodifikasi(Pemesanan $pemesanan)
     {
-        if (in_array($pemesanan->status, [Booking::STATUS_COMPLETED, Booking::STATUS_CANCELLED], true)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pemesanan yang sudah selesai atau dibatalkan tidak dapat dimodifikasi.',
-            ], 400);
+        if (in_array($pemesanan->status, [Pemesanan::STATUS_SELESAI, Pemesanan::STATUS_BATAL], true)) {
+            return $this->errorResponse('Pemesanan yang sudah selesai atau dibatalkan tidak dapat dimodifikasi.', 400);
         }
-
         return null;
     }
 }
+

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-class Service extends Model
+class Layanan extends Model
 {
     use HasFactory;
 
@@ -36,8 +36,9 @@ class Service extends Model
      */
     public function pemesanan(): BelongsToMany
     {
-        return $this->belongsToMany(Booking::class, 'layanan_pemesanan', 'id_layanan', 'id_pemesanan')
+        return $this->belongsToMany(Pemesanan::class, 'layanan_pemesanan', 'id_layanan', 'id_pemesanan')
                     ->withPivot('harga_saat_pesan')
                     ->withTimestamps();
     }
 }
+

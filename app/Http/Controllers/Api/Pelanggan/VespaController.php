@@ -4,71 +4,69 @@ namespace App\Http\Controllers\Api\Pelanggan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vespa;
+use App\Traits\ApiResponseTrait;
+use App\Http\Requests\Pelanggan\TambahVespaRequest;
+use App\Http\Requests\Pelanggan\UpdateVespaRequest;
+use App\Http\Resources\VespaResource;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class VespaController extends Controller
 {
+    use ApiResponseTrait;
+
     /**
      * Menampilkan daftar vespa milik pengguna yang sedang login.
      */
     public function index(Request $request)
     {
-        // Mengambil data vespa dengan informasi servis terakhir menggunakan subquery (tanpa N+1)
-        $daftarVespa = $request->user()
-            ->vespas()
-            ->denganTanggalServisTerakhir()
-            ->get()
-            ->each(function ($vespa) {
-                // Sinkronkan tanggal servis dari hasil subquery (tanpa query tambahan)
-                $vespa->sinkronTanggalServisDariAtribut();
-                $vespa->save();
-            });
+        try {
+            $daftarVespa = $request->user()
+                ->vespas()
+                ->denganTanggalServisTerakhir()
+                ->get()
+                ->each(function ($vespa) {
+                    $vespa->sinkronTanggalServisDariAtribut();
+                    $vespa->save();
+                });
 
-        return response()->json($daftarVespa);
+            return $this->successResponse('Daftar vespa berhasil dimuat', VespaResource::collection($daftarVespa));
+        } catch (\Exception $e) {
+            Log::error('VespaController@index: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat daftar vespa', 500, $e);
+        }
     }
 
     /**
      * Menyimpan data vespa baru.
      */
-    public function store(Request $request)
+    public function store(TambahVespaRequest $request)
     {
-        $dataTervalidasi = $request->validate([
-            'model'          => 'required|string|max:255',
-            'tahun_produksi' => 'required|integer',
-            // Perbaikan: gunakan nama tabel 'vespa' (bukan 'vespas') 
-            'plat_nomor'     => 'required|string|max:20|unique:vespa',
-        ]);
-
-        // Membuat vespa baru dan langsung menghubungkannya dengan pengguna yang login
-        $vespa = $request->user()->vespas()->create($dataTervalidasi);
-
-        return response()->json([
-            'message' => 'Vespa berhasil ditambahkan!',
-            'data'    => $vespa,
-        ], 201);
+        try {
+            $vespa = $request->user()->vespas()->create($request->validated());
+            return $this->successResponse('Vespa berhasil ditambahkan!', new VespaResource($vespa), 201);
+        } catch (\Exception $e) {
+            Log::error('VespaController@store: ' . $e->getMessage());
+            return $this->errorResponse('Gagal menambahkan vespa', 500, $e);
+        }
     }
 
     /**
      * Memperbarui data vespa.
      */
-    public function update(Request $request, Vespa $vespa)
+    public function update(UpdateVespaRequest $request, Vespa $vespa)
     {
-        // Pastikan pengguna hanya bisa mengedit vespa miliknya sendiri
-        if ($request->user()->id !== $vespa->id_pengguna) {
-            return response()->json(['message' => 'Tidak memiliki akses'], 403);
+        try {
+            if ($request->user()->id !== $vespa->id_pengguna) {
+                return $this->errorResponse('Tidak memiliki akses untuk mengubah vespa ini', 403);
+            }
+
+            $vespa->update($request->validated());
+            return $this->successResponse('Data Vespa berhasil diperbarui', new VespaResource($vespa));
+        } catch (\Exception $e) {
+            Log::error('VespaController@update: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memperbarui vespa', 500, $e);
         }
-
-        $dataTervalidasi = $request->validate([
-            'model'          => 'required|string|max:255',
-            'tahun_produksi' => 'required|integer',
-            // Pastikan plat_nomor unik, menggunakan database 'vespa'
-            'plat_nomor'     => ['required', 'string', 'max:20', Rule::unique('vespa')->ignore($vespa->id)],
-        ]);
-
-        $vespa->update($dataTervalidasi);
-
-        return response()->json($vespa);
     }
 
     /**
@@ -76,14 +74,17 @@ class VespaController extends Controller
      */
     public function destroy(Request $request, Vespa $vespa)
     {
-        // Pastikan pengguna hanya bisa menghapus vespa miliknya sendiri
-        if ($request->user()->id !== $vespa->id_pengguna) {
-            return response()->json(['message' => 'Tidak memiliki akses'], 403);
+        try {
+            if ($request->user()->id !== $vespa->id_pengguna) {
+                return $this->errorResponse('Tidak memiliki akses untuk menghapus vespa ini', 403);
+            }
+
+            $vespa->delete();
+            return $this->successResponse('Vespa berhasil dihapus');
+        } catch (\Exception $e) {
+            Log::error('VespaController@destroy: ' . $e->getMessage());
+            return $this->errorResponse('Gagal menghapus vespa', 500, $e);
         }
-
-        $vespa->delete();
-
-        return response()->json(['message' => 'Vespa berhasil dihapus']);
     }
 
     /**
@@ -91,20 +92,24 @@ class VespaController extends Controller
      */
     public function perluServis(Request $request)
     {
-        // Menggunakan subquery untuk menghindari N+1 (satu query)
-        $daftarVespa = $request->user()
-            ->vespas()
-            ->denganTanggalServisTerakhir()
-            ->get()
-            ->each(function ($vespa) {
-                $vespa->sinkronTanggalServisDariAtribut();
-                $vespa->save();
-            })
-            ->filter(function ($vespa) {
-                return $vespa->perlu_servis;
-            })
-            ->values();
+        try {
+            $daftarVespa = $request->user()
+                ->vespas()
+                ->denganTanggalServisTerakhir()
+                ->get()
+                ->each(function ($vespa) {
+                    $vespa->sinkronTanggalServisDariAtribut();
+                    $vespa->save();
+                })
+                ->filter(function ($vespa) {
+                    return $vespa->perlu_servis;
+                })
+                ->values();
 
-        return response()->json($daftarVespa);
+            return $this->successResponse('Daftar vespa perlu servis berhasil dimuat', VespaResource::collection($daftarVespa));
+        } catch (\Exception $e) {
+            Log::error('VespaController@perluServis: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memuat vespa perlu servis', 500, $e);
+        }
     }
 }

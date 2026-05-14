@@ -3,335 +3,403 @@
 namespace App\Http\Controllers\Api\Pemilik;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\User;
-use App\Models\Booking;
-use App\Models\BookingItem;
-use App\Models\Sparepart;
-use App\Models\Service;
+use App\Models\SukuCadang;
+use App\Models\Pemesanan;
+use App\Models\ItemPemesanan;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\Log;
 
 class PemilikController extends Controller
 {
-    /**
-     * Helper: Ubah data pemesanan ke format respons standar.
-     */
-    private function formatResponPemesanan($pemesanan)
-    {
-        return [
-            'id'                => $pemesanan->id,
-            'kode_pemesanan'    => $pemesanan->kode_pemesanan,
-            'tanggal_pemesanan' => $pemesanan->tanggal_pemesanan,
-            'nama_pelanggan'    => $pemesanan->pengguna->nama ?? 'N/A',
-            'nama_layanan'      => $pemesanan->layanan->pluck('nama_layanan')->join(', ') ?: 'N/A',
-            'total_harga'       => $pemesanan->total_harga ?? 0,
-            'status'            => $pemesanan->status,
-        ];
-    }
+    use ApiResponseTrait;
 
-    /**
-    * Mendapatkan statistik dashboard pemilik.
-     */
     public function statistik(Request $request)
     {
         try {
-            $hari          = Carbon::today();
-            $awalBulanIni  = Carbon::now()->startOfMonth();
+            $hari = \Carbon\Carbon::today();
+            $bulanIni = $hari->month;
+            $tahunIni = $hari->year;
 
-            // Omzet hari ini
-            $pendapatanHariIni = Booking::selesai()
+            // Pendapatan hari ini (pemesanan selesai & lunas)
+            $pendapatanHariIni = Pemesanan::selesai()
                 ->sudahDibayar()
                 ->whereDate('updated_at', $hari)
                 ->sum('total_harga');
 
-            // Omzet bulan ini
-            $pendapatanBulanIni = Booking::selesai()
+            // Pendapatan bulan ini
+            $pendapatanBulanIni = Pemesanan::selesai()
                 ->sudahDibayar()
-                ->where('updated_at', '>=', $awalBulanIni)
+                ->whereMonth('updated_at', $bulanIni)
+                ->whereYear('updated_at', $tahunIni)
                 ->sum('total_harga');
 
-            // Unit masuk hari ini (semua status kecuali Cancelled)
-            $unitHariIni = Booking::whereDate('created_at', $hari)
-                ->where('status', '!=', Booking::STATUS_CANCELLED)
+            // Unit servis selesai hari ini
+            $unitHariIni = Pemesanan::selesai()
+                ->whereDate('updated_at', $hari)
                 ->count();
 
-            // Nilai aset stok (jumlah_stok * harga_beli)
-            $nilaiStok = Sparepart::all()->sum(function ($item) {
-                return ($item->jumlah_stok ?? 0) * ($item->harga_beli ?? 0);
-            });
+            // Nilai total stok suku cadang
+            $nilaiStok = DB::table('suku_cadang')
+                ->sum(DB::raw('jumlah_stok * harga_beli'));
 
-            return response()->json([
-                'pendapatan_hari_ini'  => $pendapatanHariIni,
-                'pendapatan_bulan_ini' => $pendapatanBulanIni,
-                'unit_hari_ini'        => $unitHariIni,
-                'nilai_stok'           => $nilaiStok,
+            return $this->successResponse('Statistik berhasil dimuat', [
+                'pendapatan_hari_ini'  => (float) $pendapatanHariIni,
+                'pendapatan_bulan_ini' => (float) $pendapatanBulanIni,
+                'unit_hari_ini'        => (int) $unitHariIni,
+                'nilai_stok'           => (float) $nilaiStok,
             ]);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+            Log::error('PemilikController@statistik: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil statistik', 500, $e);
         }
     }
 
-    /**
-     * Mendapatkan 5 pemesanan terbaru.
-     */
     public function pemesananTerbaru(Request $request)
     {
         try {
-            $daftarPemesanan = Booking::with(['pengguna', 'vespa', 'layanan'])
-                ->where('status', '!=', Booking::STATUS_CANCELLED)
-                ->orderBy('created_at', 'DESC')
-                ->limit(5)
+            $daftarPemesanan = Pemesanan::with(['pengguna:id,nama', 'layanan:id,nama_layanan'])
+                ->select('id', 'kode_pemesanan', 'id_pengguna', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'total_harga')
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
                 ->get()
-                ->map(fn($pemesanan) => $this->formatResponPemesanan($pemesanan));
-
-            return response()->json($daftarPemesanan);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Mendapatkan tren pendapatan berdasarkan rentang tanggal.
-     */
-    public function trenPendapatan(Request $request)
-    {
-        try {
-            $tanggalMulai = $request->query('start_date', Carbon::now()->startOfMonth()->toDateString());
-            $tanggalAkhir = $request->query('end_date', Carbon::now()->toDateString());
-
-            $rentangTanggal = CarbonPeriod::create($tanggalMulai, $tanggalAkhir);
-
-            $labelGrafik    = [];
-            $nilaiGrafik    = [];
-            $petaPendapatan = [];
-
-            $pendapatanHarian = Booking::selesai()
-                ->sudahDibayar()
-                ->whereBetween('tanggal_pemesanan', [$tanggalMulai, $tanggalAkhir])
-                ->selectRaw('DATE(tanggal_pemesanan) as tanggal, SUM(total_harga) as total')
-                ->groupBy('tanggal')
-                ->orderBy('tanggal', 'asc')
-                ->get();
-
-            // Mapping hasil query ke array asosiatif: ['2026-01-13' => 150000]
-            foreach ($pendapatanHarian as $item) {
-                $petaPendapatan[$item->tanggal] = (float) $item->total;
-            }
-
-            // Loop rentang tanggal untuk mengisi data grafik
-            foreach ($rentangTanggal as $tanggal) {
-                $kunciTanggal = $tanggal->format('Y-m-d');
-
-                // Format label grafik: "13 Jan", "14 Jan"
-                $labelGrafik[] = $tanggal->format('d M');
-
-                // Isi nilai: ambil dari peta jika ada, jika tidak set 0
-                $nilaiGrafik[] = $petaPendapatan[$kunciTanggal] ?? 0;
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'data'   => [
-                    'labels'        => $labelGrafik,
-                    'values'        => $nilaiGrafik,
-                    'total_periode' => array_sum($nilaiGrafik),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Tren pendapatan error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal memuat data grafik: ' . $e->getMessage(),
-                'labels'  => [],
-                'values'  => [],
-            ], 500);
-        }
-    }
-
-    /**
-     * Mendapatkan daftar transaksi berdasarkan rentang tanggal.
-     */
-    public function transaksi(Request $request)
-    {
-        try {
-            $tanggalMulai = $request->query('start_date', Carbon::now()->startOfMonth()->toDateString());
-            $tanggalAkhir = $request->query('end_date', Carbon::now()->toDateString());
-
-            $daftarTransaksi = Booking::with(['pengguna:id,nama', 'vespa:id,plat_nomor'])
-                ->where('status', Booking::STATUS_COMPLETED)
-                ->where('status_pembayaran', Booking::PAYMENT_STATUS_PAID)
-                ->whereBetween('tanggal_pemesanan', [$tanggalMulai, $tanggalAkhir])
-                ->orderBy('tanggal_pemesanan', 'DESC')
-                ->get()
-                ->map(function ($pemesanan) {
+                ->map(function ($p) {
                     return [
-                        'id'                => $pemesanan->id,
-                        'kode_pemesanan'    => $pemesanan->kode_pemesanan,
-                        'tanggal_pemesanan' => $pemesanan->tanggal_pemesanan,
-                        'pengguna'          => [
-                            'nama' => $pemesanan->pengguna->nama ?? 'N/A',
-                        ],
-                        'vespa'             => [
-                            'plat_nomor' => $pemesanan->vespa->plat_nomor ?? 'N/A',
-                        ],
-                        'total_harga'       => $pemesanan->total_harga ?? 0,
-                        'status'            => $pemesanan->status,
-                        'status_pembayaran' => $pemesanan->status_pembayaran,
+                        'id'               => $p->id,
+                        'kode_pemesanan'   => $p->kode_pemesanan,
+                        'tanggal_pemesanan'=> $p->tanggal_pemesanan,
+                        'nama_pelanggan'   => $p->pengguna->nama ?? '-',
+                        'nama_layanan'     => $p->layanan->pluck('nama_layanan')->join(', ') ?: '-',
+                        'total_harga'      => $p->total_harga,
+                        'status'           => $p->status,
+                        'status_pembayaran'=> $p->status_pembayaran,
                     ];
                 });
 
-            return response()->json([
-                'status' => 'success',
-                'data'   => $daftarTransaksi,
-            ]);
+            return $this->successResponse('Pemesanan terbaru berhasil dimuat', $daftarPemesanan);
 
         } catch (\Exception $e) {
-            \Log::error('Transaksi error: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'error'  => $e->getMessage(),
-                'data'   => [],
-            ], 500);
+            Log::error('PemilikController@pemesananTerbaru: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil pemesanan terbaru', 500, $e);
         }
     }
 
-    /**
-     * Mendapatkan 5 layanan terpopuler.
-     */
+    public function trenPendapatan(Request $request)
+    {
+        try {
+            $startDate = $request->query('start_date');
+            $endDate   = $request->query('end_date');
+
+            // Jika ada filter tanggal, buat grafik per hari dalam rentang tersebut
+            if ($startDate && $endDate) {
+                $start = \Carbon\Carbon::parse($startDate)->startOfDay();
+                $end   = \Carbon\Carbon::parse($endDate)->endOfDay();
+
+                $labels = [];
+                $values = [];
+
+                // Selalu tampilkan per hari sesuai rentang filter
+                $current = $start->copy();
+                while ($current <= $end) {
+                    $pendapatan = Pemesanan::selesai()
+                        ->sudahDibayar()
+                        ->whereDate('updated_at', $current->toDateString())
+                        ->sum('total_harga');
+
+                    $labels[] = $current->format('d M');
+                    $values[] = (float) $pendapatan;
+                    $current->addDay();
+                }
+
+                return $this->successResponse('Tren pendapatan berhasil dimuat', [
+                    'labels' => $labels,
+                    'values' => $values,
+                ]);
+            }
+
+            // Default: 7 bulan terakhir
+            $labels = [];
+            $values = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $tanggal = \Carbon\Carbon::now()->subMonths($i);
+                $pendapatan = Pemesanan::selesai()
+                    ->sudahDibayar()
+                    ->whereMonth('updated_at', $tanggal->month)
+                    ->whereYear('updated_at', $tanggal->year)
+                    ->sum('total_harga');
+
+                $labels[] = $tanggal->translatedFormat('M Y');
+                $values[] = (float) $pendapatan;
+            }
+
+            return $this->successResponse('Tren pendapatan berhasil dimuat', [
+                'labels' => $labels,
+                'values' => $values,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@trenPendapatan: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil tren pendapatan', 500, $e);
+        }
+    }
+
+    public function transaksi(Request $request)
+    {
+        try {
+            $perHalaman = $request->query('per_page', 100);
+            $startDate  = $request->query('start_date');
+            $endDate    = $request->query('end_date');
+            $bulan      = $request->query('month');
+            $tahun      = $request->query('year');
+
+            $query = Pemesanan::selesai()
+                ->sudahDibayar()
+                ->with(['pengguna:id,nama', 'vespa:id,plat_nomor', 'layanan:id,nama_layanan'])
+                ->select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'total_harga', 'updated_at');
+
+            if ($startDate && $endDate) {
+                $query->whereBetween('tanggal_pemesanan', [$startDate, $endDate]);
+            } elseif ($bulan && $tahun) {
+                $query->whereMonth('tanggal_pemesanan', $bulan)->whereYear('tanggal_pemesanan', $tahun);
+            } elseif ($tahun) {
+                $query->whereYear('tanggal_pemesanan', $tahun);
+            }
+
+            $transaksi = $query->orderBy('tanggal_pemesanan', 'desc')->get();
+
+            return $this->successResponse('Transaksi berhasil dimuat', $transaksi);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@transaksi: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil transaksi', 500, $e);
+        }
+    }
+
     public function layananTerpopuler(Request $request)
     {
         try {
-            $bulan = $request->query('month');
-            $tahun = $request->query('year');
+            $bulan = $request->query('month', date('m'));
+            $tahun = $request->query('year', date('Y'));
 
-            $daftarLayananTerpopuler = DB::table('layanan')
-                ->join('layanan_pemesanan', 'layanan.id', '=', 'layanan_pemesanan.id_layanan')
+            $layanan = DB::table('layanan_pemesanan')
+                ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
                 ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-                ->where('pemesanan.status', Booking::STATUS_COMPLETED)
-                ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
-                ->when($bulan, function ($query) use ($bulan) {
-                    return $query->whereMonth('pemesanan.tanggal_pemesanan', $bulan);
-                })
-                ->when($tahun, function ($query) use ($tahun) {
-                    return $query->whereYear('pemesanan.tanggal_pemesanan', $tahun);
-                })
-                ->select(
-                    'layanan.id',
-                    'layanan.nama_layanan',
-                    'layanan.harga',
-                    DB::raw('COUNT(layanan_pemesanan.id_pemesanan) as total_pemesanan')
-                )
-                ->groupBy('layanan.id', 'layanan.nama_layanan', 'layanan.harga')
-                ->orderByDesc('total_pemesanan')
+                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
+                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+                ->select('layanan.nama_layanan', DB::raw('count(*) as total'))
+                ->groupBy('layanan.id', 'layanan.nama_layanan')
+                ->orderByDesc('total')
                 ->limit(5)
                 ->get();
 
-            return response()->json($daftarLayananTerpopuler);
+            return $this->successResponse('Layanan terpopuler berhasil dimuat', $layanan);
 
         } catch (\Exception $e) {
-            \Log::error('Error mendapatkan layanan terpopuler: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('PemilikController@layananTerpopuler: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil layanan terpopuler', 500, $e);
         }
     }
 
-    /**
-     * Mendapatkan 5 suku cadang terlaris.
-     */
     public function sukuCadangTerlaris(Request $request)
     {
         try {
-            $bulan = $request->query('month');
-            $tahun = $request->query('year');
+            $bulan = $request->query('month', date('m'));
+            $tahun = $request->query('year', date('Y'));
 
-            $daftarSukuCadangTerlaris = DB::table('suku_cadang')
-                ->join('item_pemesanan', 'suku_cadang.id', '=', 'item_pemesanan.id_suku_cadang')
+            $sukuCadang = ItemPemesanan::select('id_suku_cadang', DB::raw('sum(jumlah) as total_terjual'))
+                ->with('sukuCadang:id,nama_suku_cadang')
                 ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-                ->where('pemesanan.status', Booking::STATUS_COMPLETED)
-                ->where('pemesanan.status_pembayaran', Booking::PAYMENT_STATUS_PAID)
-                ->when($bulan, function ($query) use ($bulan) {
-                    return $query->whereMonth('pemesanan.tanggal_pemesanan', $bulan);
-                })
-                ->when($tahun, function ($query) use ($tahun) {
-                    return $query->whereYear('pemesanan.tanggal_pemesanan', $tahun);
-                })
-                ->select(
-                    'suku_cadang.id',
-                    'suku_cadang.nama_suku_cadang as nama_barang',
-                    'suku_cadang.jumlah_stok',
-                    'suku_cadang.harga_jual',
-                    DB::raw('SUM(item_pemesanan.jumlah) as total_terjual'),
-                    DB::raw('SUM(item_pemesanan.jumlah * item_pemesanan.harga_saat_ini) as total_pendapatan')
-                )
-                ->groupBy(
-                    'suku_cadang.id',
-                    'suku_cadang.nama_suku_cadang',
-                    'suku_cadang.jumlah_stok',
-                    'suku_cadang.harga_jual'
-                )
+                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
+                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+                ->groupBy('id_suku_cadang')
                 ->orderByDesc('total_terjual')
-                ->limit(5)
-                ->get();
+                ->take(5)
+                ->get()
+                ->map(fn($item) => [
+                    'id'           => $item->id_suku_cadang,
+                    'nama_barang'  => $item->sukuCadang->nama_suku_cadang ?? '-',
+                    'total_terjual'=> (int) $item->total_terjual,
+                ]);
 
-            return response()->json($daftarSukuCadangTerlaris);
+            return $this->successResponse('Suku cadang terlaris berhasil dimuat', $sukuCadang);
 
         } catch (\Exception $e) {
-            \Log::error('Error mendapatkan suku cadang terlaris: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('PemilikController@sukuCadangTerlaris: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil suku cadang terlaris', 500, $e);
         }
     }
 
-    /**
-     * Mendapatkan daftar suku cadang dengan stok menipis.
-     */
     public function stokMenipis(Request $request)
     {
         try {
-            $daftarStokMenipis = Sparepart::all()
-                ->filter(function ($item) {
-                    return $item->jumlah_stok <= $item->batas_minimal_stok;
-                })
-                ->sortBy('jumlah_stok')
-                ->map(function ($item) {
-                    return [
-                        'id'           => $item->id,
-                        'nama_barang'  => $item->nama_suku_cadang,
-                        'kategori'     => $item->kategori,
-                        'jumlah_stok'  => $item->jumlah_stok,
-                        'minimum_stok' => $item->batas_minimal_stok,
-                        'harga_beli'   => $item->harga_beli,
-                    ];
-                })
-                ->values();
+            $stokMenipis = SukuCadang::whereRaw('jumlah_stok <= batas_minimal_stok')
+                ->orderBy('jumlah_stok', 'asc')
+                ->get(['id', 'nama_suku_cadang', 'kategori', 'jumlah_stok', 'batas_minimal_stok', 'harga_beli'])
+                ->map(fn($item) => [
+                    'id'           => $item->id,
+                    'nama_barang'  => $item->nama_suku_cadang,
+                    'kategori'     => $item->kategori,
+                    'jumlah_stok'  => $item->jumlah_stok,
+                    'minimum_stok' => $item->batas_minimal_stok,
+                    'harga_beli'   => $item->harga_beli,
+                ]);
 
-            return response()->json($daftarStokMenipis);
+            return $this->successResponse('Stok menipis berhasil dimuat', $stokMenipis);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+            Log::error('PemilikController@stokMenipis: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil data stok menipis', 500, $e);
         }
     }
 
-    /**
-     * Mendapatkan jumlah mekanik yang sedang online (last_seen dalam 5 menit terakhir).
-     */
     public function getOnlineMechanicsCount(Request $request)
     {
         try {
-            $count = User::where('role', 'mekanik')
-                ->where('last_seen', '>=', Carbon::now()->subMinutes(5))
+            $totalMekanik = User::where('role', 'mekanik')->count();
+
+            // Mekanik dianggap online jika last_seen dalam 5 menit terakhir
+            $batasWaktu = \Carbon\Carbon::now()->subMinutes(5);
+            $jumlahOnline = User::where('role', 'mekanik')
+                ->where('last_seen', '>=', $batasWaktu)
                 ->count();
 
-            return response()->json([
-                'count' => $count,
+            return $this->successResponse('Jumlah mekanik berhasil dimuat', [
+                'online' => $jumlahOnline,
+                'total'  => $totalMekanik,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error mendapatkan jumlah mekanik online: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage(), 'count' => 0], 500);
+            Log::error('PemilikController@getOnlineMechanicsCount: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil jumlah mekanik online', 500, $e);
+        }
+    }
+
+    public function ringkasan(Request $request)
+    {
+        try {
+            $bulan = $request->query('month', date('m'));
+            $tahun = $request->query('year', date('Y'));
+
+            $pendapatan = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('tanggal_pemesanan', $tahun)
+                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->sum('total_harga');
+
+            // Hitung modal
+            $biayaSukuCadang = DB::table('item_pemesanan')
+                ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
+                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
+                ->sum(DB::raw('item_pemesanan.harga_saat_pesan * item_pemesanan.jumlah'));
+                
+            $biayaLayanan = DB::table('pemesanan_layanan')
+                ->join('pemesanan', 'pemesanan_layanan.id_pemesanan', '=', 'pemesanan.id')
+                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
+                ->sum('pemesanan_layanan.harga_saat_pesan');
+                
+            $marginKeuntungan = $pendapatan > 0 ? (($pendapatan - $biayaSukuCadang) / $pendapatan) * 100 : 0;
+
+            $totalPemesananSelesai = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('tanggal_pemesanan', $tahun)
+                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->count();
+                
+            $totalPelanggan = User::where('role', 'pelanggan')->count();
+            
+            $mekanikTerbaik = Pemesanan::select('id_mekanik', DB::raw('count(*) as total_pekerjaan'))
+                ->with('mekanik:id,nama')
+                ->where('status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('tanggal_pemesanan', $tahun)
+                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->whereNotNull('id_mekanik')
+                ->groupBy('id_mekanik')
+                ->orderByDesc('total_pekerjaan')
+                ->first();
+
+            $sukuCadangTerlaris = ItemPemesanan::select('id_suku_cadang', DB::raw('sum(jumlah) as total_terjual'))
+                ->with('sukuCadang:id,nama_suku_cadang')
+                ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
+                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
+                ->groupBy('id_suku_cadang')
+                ->orderByDesc('total_terjual')
+                ->take(5)
+                ->get();
+
+            return $this->successResponse('Ringkasan berhasil dimuat', [
+                'periode' => [
+                    'bulan' => $bulan,
+                    'tahun' => $tahun
+                ],
+                'finansial' => [
+                    'pendapatan_kotor' => $pendapatan,
+                    'estimasi_modal_suku_cadang' => $biayaSukuCadang,
+                    'margin_keuntungan_persen' => round($marginKeuntungan, 2)
+                ],
+                'operasional' => [
+                    'total_pemesanan_selesai' => $totalPemesananSelesai,
+                    'total_pelanggan_aktif' => $totalPelanggan
+                ],
+                'performa' => [
+                    'mekanik_terbaik' => $mekanikTerbaik ? [
+                        'nama' => $mekanikTerbaik->mekanik->nama ?? 'Unknown',
+                        'total_pekerjaan' => $mekanikTerbaik->total_pekerjaan
+                    ] : null,
+                    'suku_cadang_terlaris' => $sukuCadangTerlaris
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@ringkasan: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil ringkasan dashboard pemilik', 500, $e);
+        }
+    }
+
+    public function metrikKeuangan(Request $request)
+    {
+        try {
+            $tahun = $request->query('year', date('Y'));
+            
+            $pendapatanBulanan = Pemesanan::select(
+                    DB::raw('MONTH(tanggal_pemesanan) as bulan'),
+                    DB::raw('SUM(total_harga) as pendapatan')
+                )
+                ->where('status', Pemesanan::STATUS_SELESAI)
+                ->whereYear('tanggal_pemesanan', $tahun)
+                ->groupBy('bulan')
+                ->orderBy('bulan')
+                ->get();
+                
+            $formatGrafik = [];
+            for ($i = 1; $i <= 12; $i++) {
+                $formatGrafik[] = [
+                    'bulan' => $i,
+                    'pendapatan' => 0
+                ];
+            }
+            
+            foreach ($pendapatanBulanan as $item) {
+                $formatGrafik[$item->bulan - 1]['pendapatan'] = $item->pendapatan;
+            }
+
+            return $this->successResponse('Metrik keuangan berhasil dimuat', [
+                'tahun' => $tahun,
+                'grafik_pendapatan' => $formatGrafik
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@metrikKeuangan: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil metrik keuangan', 500, $e);
         }
     }
 }
+

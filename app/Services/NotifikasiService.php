@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Notification;
-use App\Models\Booking;
-use App\Models\Sparepart;
+use App\Models\Notifikasi;
+use App\Models\Pemesanan;
+use App\Models\SukuCadang;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\BookingStatusUpdateMail;
+use App\Mail\EmailUpdateStatusPemesanan;
 
-class NotificationService
+class NotifikasiService
 {
     /**
      * Ambil daftar akun pemilik (termasuk alias role legacy).
@@ -24,14 +24,14 @@ class NotificationService
     /**
      * Kirim email pembaruan status ke pelanggan
      */
-    private function kirimEmailStatusUpdate(Booking $pemesanan, string $judul, string $pesan): void
+    private function kirimEmailStatusUpdate(Pemesanan $pemesanan, string $judul, string $pesan): void
     {
         try {
             // Pastikan relasi yang dibutuhkan untuk email dimuat
             $pemesanan->loadMissing('pengguna', 'vespa');
             
             if ($pemesanan->pengguna && $pemesanan->pengguna->email) {
-                Mail::to($pemesanan->pengguna->email)->send(new BookingStatusUpdateMail($pemesanan, $judul, $pesan));
+                Mail::to($pemesanan->pengguna->email)->send(new EmailUpdateStatusPemesanan($pemesanan, $judul, $pesan));
             }
         } catch (\Exception $e) {
             \Log::error('Gagal mengirim email status update: ' . $e->getMessage());
@@ -48,8 +48,8 @@ class NotificationService
         string $pesan,
         ?int $idPemesanan = null,
         bool $sudahDibaca = false
-    ): Notification {
-        return Notification::create([
+    ): Notifikasi {
+        return Notifikasi::create([
             'id_pengguna'  => $idPengguna,
             'tipe'         => $tipe,
             'judul'        => $judul,
@@ -62,7 +62,7 @@ class NotificationService
     /**
      * Notifikasi ke pelanggan saat pemesanan selesai.
      */
-    public function notifikasiPemesananSelesai(Booking $pemesanan): void
+    public function notifikasiPemesananSelesai(Pemesanan $pemesanan): void
     {
         $judul = 'Servis Selesai';
         $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah selesai. Silakan datang ke bengkel untuk mengambil Vespa dan melakukan pembayaran.";
@@ -81,7 +81,7 @@ class NotificationService
     /**
      * Notifikasi ke pelanggan saat pemesanan dikonfirmasi.
      */
-    public function notifikasiPemesananDikonfirmasi(Booking $pemesanan): void
+    public function notifikasiPemesananDikonfirmasi(Pemesanan $pemesanan): void
     {
         $judul = 'Pemesanan Dikonfirmasi';
         $pesan = "Pemesanan {$pemesanan->kode_pemesanan} telah dikonfirmasi. Silakan datang ke bengkel untuk mengantar Vespa Anda.";
@@ -100,7 +100,7 @@ class NotificationService
     /**
      * Notifikasi ke pelanggan saat pemesanan sedang diproses.
      */
-    public function notifikasiPemesananDiproses(Booking $pemesanan): void
+    public function notifikasiPemesananDiproses(Pemesanan $pemesanan): void
     {
         $judul = 'Servis Dimulai';
         $pesan = "Servis untuk pemesanan {$pemesanan->kode_pemesanan} telah dimulai dan sedang dikerjakan oleh mekanik kami.";
@@ -119,7 +119,7 @@ class NotificationService
     /**
      * Notifikasi ke pelanggan saat pemesanan dibatalkan.
      */
-    public function notifikasiPemesananDibatalkan(Booking $pemesanan): void
+    public function notifikasiPemesananDibatalkan(Pemesanan $pemesanan): void
     {
         $judul = 'Pemesanan Dibatalkan';
         $pesan = "Pemesanan {$pemesanan->kode_pemesanan} telah dibatalkan.";
@@ -138,7 +138,7 @@ class NotificationService
     /**
      * Notifikasi ke semua admin saat ada pemesanan baru.
      */
-    public function notifikasiAdminPemesananBaru(Booking $pemesanan, User $pelanggan): void
+    public function notifikasiAdminPemesananBaru(Pemesanan $pemesanan, User $pelanggan): void
     {
         $daftarAdmin = User::admin()->get();
 
@@ -161,7 +161,7 @@ class NotificationService
     /**
      * Notifikasi ke mekanik saat ditugaskan ke sebuah pemesanan.
      */
-    public function notifikasiMekanikDitugaskan(Booking $pemesanan, User $mekanik): void
+    public function notifikasiMekanikDitugaskan(Pemesanan $pemesanan, User $mekanik): void
     {
         $this->buatNotifikasi(
             $mekanik->id,
@@ -189,7 +189,7 @@ class NotificationService
     /**
      * Notifikasi ke pelanggan saat pemesanan diperbarui.
      */
-    public function notifikasiPemesananDiperbarui(Booking $pemesanan, string $pesan): void
+    public function notifikasiPemesananDiperbarui(Pemesanan $pemesanan, string $pesan): void
     {
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
@@ -203,9 +203,9 @@ class NotificationService
     /**
      * Notifikasi ke pemilik saat pembayaran sebuah pemesanan diterima.
      */
-    public function notifikasiPemilikPembayaranDiterima(Booking $pemesanan): void
+    public function notifikasiPemilikPembayaranDiterima(Pemesanan $pemesanan): void
     {
-        if ($pemesanan->status_pembayaran !== Booking::PAYMENT_STATUS_PAID) {
+        if ($pemesanan->status_pembayaran !== Pemesanan::PAYMENT_STATUS_PAID) {
             return;
         }
 
@@ -222,9 +222,9 @@ class NotificationService
         $pesan = "Pemesanan {$pemesanan->kode_pemesanan} dari {$namaPelanggan} telah lunas ({$totalPembayaran}).";
 
         foreach ($daftarPemilik as $pemilik) {
-            $sudahPernahTerkirimKePemilik = Notification::query()
+            $sudahPernahTerkirimKePemilik = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notification::TYPE_PAYMENT_RECEIVED)
+                ->where('tipe', Notifikasi::TYPE_PAYMENT_RECEIVED)
                 ->where('id_pemesanan', $pemesanan->id)
                 ->exists();
 
@@ -235,7 +235,7 @@ class NotificationService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notification::TYPE_PAYMENT_RECEIVED,
+                    Notifikasi::TYPE_PAYMENT_RECEIVED,
                     $judul,
                     $pesan,
                     $pemesanan->id
@@ -252,7 +252,7 @@ class NotificationService
     /**
      * Notifikasi ke pemilik saat stok suku cadang melewati batas minimal.
      */
-    public function notifikasiPemilikStokMenipis(Sparepart $sukuCadang, ?int $stokSebelum = null): void
+    public function notifikasiPemilikStokMenipis(SukuCadang $sukuCadang, ?int $stokSebelum = null): void
     {
         if ((int) $sukuCadang->jumlah_stok > (int) $sukuCadang->batas_minimal_stok) {
             return;
@@ -271,9 +271,9 @@ class NotificationService
         $pesan = "Stok {$sukuCadang->nama_suku_cadang} menipis ({$sukuCadang->jumlah_stok} tersisa, batas minimal {$sukuCadang->batas_minimal_stok}).";
 
         foreach ($daftarPemilik as $pemilik) {
-            $sudahAdaNotifikasiSerupa = Notification::query()
+            $sudahAdaNotifikasiSerupa = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notification::TYPE_LOW_STOCK)
+                ->where('tipe', Notifikasi::TYPE_LOW_STOCK)
                 ->where('judul', $judul)
                 ->where('pesan', $pesan)
                 ->where('created_at', '>=', now()->subHours(12))
@@ -286,7 +286,7 @@ class NotificationService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notification::TYPE_LOW_STOCK,
+                    Notifikasi::TYPE_LOW_STOCK,
                     $judul,
                     $pesan,
                     null
@@ -312,9 +312,9 @@ class NotificationService
 
         $batasWaktu = now()->subDays(max(1, $batasHari));
 
-        $daftarPemesananLunas = Booking::query()
-            ->where('status', Booking::STATUS_COMPLETED)
-            ->where('status_pembayaran', Booking::PAYMENT_STATUS_PAID)
+        $daftarPemesananLunas = Pemesanan::query()
+            ->where('status', Pemesanan::STATUS_SELESAI)
+            ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
             ->where('updated_at', '>=', $batasWaktu)
             ->with('pengguna:id,nama')
             ->orderByDesc('updated_at')
@@ -322,9 +322,9 @@ class NotificationService
             ->get();
 
         foreach ($daftarPemesananLunas as $pemesanan) {
-            $sudahAda = Notification::query()
+            $sudahAda = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notification::TYPE_PAYMENT_RECEIVED)
+                ->where('tipe', Notifikasi::TYPE_PAYMENT_RECEIVED)
                 ->where('id_pemesanan', $pemesanan->id)
                 ->exists();
 
@@ -340,7 +340,7 @@ class NotificationService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notification::TYPE_PAYMENT_RECEIVED,
+                    Notifikasi::TYPE_PAYMENT_RECEIVED,
                     $judul,
                     $pesan,
                     $pemesanan->id
@@ -364,7 +364,7 @@ class NotificationService
             return;
         }
 
-        $daftarSukuCadangStokMenipis = Sparepart::query()
+        $daftarSukuCadangStokMenipis = SukuCadang::query()
             ->whereRaw('jumlah_stok <= batas_minimal_stok')
             ->orderBy('jumlah_stok')
             ->limit(100)
@@ -374,9 +374,9 @@ class NotificationService
             $judul = 'Stok Menipis';
             $pesan = "Stok {$sukuCadang->nama_suku_cadang} menipis ({$sukuCadang->jumlah_stok} tersisa, batas minimal {$sukuCadang->batas_minimal_stok}).";
 
-            $sudahAda = Notification::query()
+            $sudahAda = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notification::TYPE_LOW_STOCK)
+                ->where('tipe', Notifikasi::TYPE_LOW_STOCK)
                 ->where('judul', $judul)
                 ->where('pesan', $pesan)
                 ->exists();
@@ -388,7 +388,7 @@ class NotificationService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notification::TYPE_LOW_STOCK,
+                    Notifikasi::TYPE_LOW_STOCK,
                     $judul,
                     $pesan,
                     null
@@ -402,3 +402,4 @@ class NotificationService
         }
     }
 }
+

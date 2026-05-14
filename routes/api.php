@@ -3,16 +3,16 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\LayananController;
 use App\Http\Controllers\Api\Pelanggan\VespaController;
-use App\Http\Controllers\Api\Pelanggan\BookingController;
-use App\Http\Controllers\Api\Pelanggan\NotificationController;
-use App\Http\Controllers\Api\Admin\AdminBookingController;
-use App\Http\Controllers\Api\Admin\AdminServiceController;
-use App\Http\Controllers\Api\Admin\AdminFinancialReportController;
+use App\Http\Controllers\Api\Pelanggan\PemesananController;
+use App\Http\Controllers\Api\Pelanggan\NotifikasiController;
+use App\Http\Controllers\Api\Admin\AdminPemesananController;
+use App\Http\Controllers\Api\Admin\AdminLayananController;
+use App\Http\Controllers\Api\Admin\AdminLaporanKeuanganController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
-use App\Http\Controllers\Api\Admin\AdminInventoryCategoryController;
-use App\Http\Controllers\Api\Admin\AdminSparepartController;
+use App\Http\Controllers\Api\Admin\AdminKategoriInventarisController;
+use App\Http\Controllers\Api\Admin\AdminSukuCadangController;
 use App\Http\Controllers\Api\Admin\KaryawanController;
 use App\Http\Controllers\Api\Mekanik\MekanikDashboardController;
 use App\Http\Controllers\Api\Pemilik\PemilikController;
@@ -20,7 +20,7 @@ use App\Http\Controllers\Api\Pemilik\PemilikController;
 // Rute publik: registrasi dan login
 Route::post('/daftar', [AuthController::class, 'daftar']);
 Route::post('/masuk', [AuthController::class, 'masuk']);
-Route::get('/layanan', [ServiceController::class, 'index']);
+Route::get('/layanan', [LayananController::class, 'index']);
 
 // Rute untuk semua pengguna terautentikasi
 Route::middleware('auth:sanctum')->group(function () {
@@ -41,9 +41,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Rute notifikasi untuk semua pengguna login (data tetap dipagari per user di controller)
-    Route::get('/notifikasi', [NotificationController::class, 'index']);
-    Route::post('/notifikasi/{id}/tandai-dibaca', [NotificationController::class, 'tandaiDibaca']);
-    Route::post('/notifikasi/tandai-semua-dibaca', [NotificationController::class, 'tandaiSemuaDibaca']);
+    Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    Route::post('/notifikasi/{id}/tandai-dibaca', [NotifikasiController::class, 'tandaiDibaca']);
+    Route::post('/notifikasi/tandai-semua-dibaca', [NotifikasiController::class, 'tandaiSemuaDibaca']);
 });
 
 // Rute untuk pelanggan
@@ -56,49 +56,49 @@ Route::middleware(['auth:sanctum', 'role:pelanggan'])->group(function () {
     Route::get('/vespa-saya/perlu-servis', [VespaController::class, 'perluServis']);
 
     // Rute untuk pemesanan pelanggan
-    Route::get('/pemesanan', [BookingController::class, 'index']);
-    Route::get('/pemesanan/cek-slot', [BookingController::class, 'cekSlot']);
-    Route::get('/pemesanan/{pemesanan}', [BookingController::class, 'show']);
-    Route::post('/pemesanan', [BookingController::class, 'store']);
-    Route::post('/pemesanan/{pemesanan}/batalkan', [BookingController::class, 'batalkan']);
+    Route::get('/pemesanan', [PemesananController::class, 'index']);
+    Route::get('/pemesanan/cek-slot', [PemesananController::class, 'cekSlot']);
+    Route::get('/pemesanan/{pemesanan}', [PemesananController::class, 'show']);
+    Route::post('/pemesanan', [PemesananController::class, 'store']);
+    Route::post('/pemesanan/{pemesanan}/batalkan', [PemesananController::class, 'batalkan']);
 
 });
 
 // Rute untuk admin
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
-    Route::get('/pemesanan', [AdminBookingController::class, 'index']);
-    Route::get('/pemesanan/{pemesanan}', [AdminBookingController::class, 'show']);
-    Route::patch('/pemesanan/{pemesanan}/status', [AdminBookingController::class, 'updateStatus']);
-    Route::patch('/pemesanan/{pemesanan}/status-pembayaran', [AdminBookingController::class, 'updatePaymentStatus']);
+    Route::get('/pemesanan', [AdminPemesananController::class, 'index']);
+    Route::get('/pemesanan/{pemesanan}', [AdminPemesananController::class, 'show']);
+    Route::patch('/pemesanan/{pemesanan}/status', [AdminPemesananController::class, 'updateStatus']);
+    Route::patch('/pemesanan/{pemesanan}/status-pembayaran', [AdminPemesananController::class, 'updatePaymentStatus']);
 
-    Route::post('/layanan', [AdminServiceController::class, 'store']);
-    Route::put('/layanan/{service}', [AdminServiceController::class, 'update']);
-    Route::delete('/layanan/{service}', [AdminServiceController::class, 'destroy']);
+    Route::post('/layanan', [AdminLayananController::class, 'store']);
+    Route::put('/layanan/{service}', [AdminLayananController::class, 'update']);
+    Route::delete('/layanan/{service}', [AdminLayananController::class, 'destroy']);
 
     Route::get('/dashboard/statistik', [AdminDashboardController::class, 'statistik']);
     Route::get('/dashboard/pemesanan-terbaru', [AdminDashboardController::class, 'pemesananTerbaru']);
 
     // Rute untuk laporan keuangan
-    Route::get('/laporan/keuangan', [AdminFinancialReportController::class, 'index']);
+    Route::get('/laporan/keuangan', [AdminLaporanKeuanganController::class, 'index']);
 
     // Rute untuk manajemen inventori (suku cadang)
-    Route::get('/inventori/kategori', [AdminInventoryCategoryController::class, 'index']);
-    Route::post('/inventori/kategori', [AdminInventoryCategoryController::class, 'store']);
-    Route::get('/inventori', [AdminSparepartController::class, 'index']);
-    Route::get('/inventori/stok-menipis', [AdminSparepartController::class, 'peringatanStokMenipis']);
-    Route::post('/inventori', [AdminSparepartController::class, 'store']);
-    Route::get('/inventori/{sukuCadang}', [AdminSparepartController::class, 'show']);
-    Route::put('/inventori/{sukuCadang}', [AdminSparepartController::class, 'update']);
-    Route::delete('/inventori/{sukuCadang}', [AdminSparepartController::class, 'destroy']);
-    Route::post('/inventori/{sukuCadang}/tambah-stok', [AdminSparepartController::class, 'tambahStok']);
+    Route::get('/inventori/kategori', [AdminKategoriInventarisController::class, 'index']);
+    Route::post('/inventori/kategori', [AdminKategoriInventarisController::class, 'store']);
+    Route::get('/inventori', [AdminSukuCadangController::class, 'index']);
+    Route::get('/inventori/stok-menipis', [AdminSukuCadangController::class, 'peringatanStokMenipis']);
+    Route::post('/inventori', [AdminSukuCadangController::class, 'store']);
+    Route::get('/inventori/{sukuCadang}', [AdminSukuCadangController::class, 'show']);
+    Route::put('/inventori/{sukuCadang}', [AdminSukuCadangController::class, 'update']);
+    Route::delete('/inventori/{sukuCadang}', [AdminSukuCadangController::class, 'destroy']);
+    Route::post('/inventori/{sukuCadang}/tambah-stok', [AdminSukuCadangController::class, 'tambahStok']);
 
     // Rute untuk suku cadang pada pemesanan
-    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [AdminBookingController::class, 'tambahSukuCadang']);
-    Route::delete('/pemesanan/{pemesanan}/item/{idItemPemesanan}', [AdminBookingController::class, 'hapusSukuCadang']);
+    Route::post('/pemesanan/{pemesanan}/tambah-suku-cadang', [AdminPemesananController::class, 'tambahSukuCadang']);
+    Route::delete('/pemesanan/{pemesanan}/item/{idItemPemesanan}', [AdminPemesananController::class, 'hapusSukuCadang']);
 
     // Rute untuk penugasan mekanik
-    Route::get('/mekanik', [AdminBookingController::class, 'daftarMekanik']);
-    Route::patch('/pemesanan/{pemesanan}/tugaskan-mekanik', [AdminBookingController::class, 'tugaskanMekanik']);
+    Route::get('/mekanik', [AdminPemesananController::class, 'daftarMekanik']);
+    Route::patch('/pemesanan/{pemesanan}/tugaskan-mekanik', [AdminPemesananController::class, 'tugaskanMekanik']);
 
     // Rute untuk manajemen karyawan (admin & mekanik)
     Route::get('/karyawan', [KaryawanController::class, 'index']);
@@ -127,3 +127,4 @@ Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(fu
     Route::get('/stok-menipis', [PemilikController::class, 'stokMenipis']);
     Route::get('/mekanik-online', [PemilikController::class, 'getOnlineMechanicsCount']);
 });
+

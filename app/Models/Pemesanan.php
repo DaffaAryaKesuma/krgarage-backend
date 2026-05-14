@@ -8,18 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Booking extends Model
+class Pemesanan extends Model
 {
     use HasFactory;
 
     protected $table = 'pemesanan';
 
     // Konstanta status yang sudah dibakukan
-    public const STATUS_PENDING    = 'Pending';
-    public const STATUS_CONFIRMED  = 'Confirmed';
-    public const STATUS_IN_PROGRESS = 'In Progress';
-    public const STATUS_COMPLETED  = 'Completed';
-    public const STATUS_CANCELLED  = 'Cancelled';
+    public const STATUS_MENUNGGU    = 'Menunggu';
+    public const STATUS_DIKONFIRMASI  = 'Dikonfirmasi';
+    public const STATUS_DIKERJAKAN = 'Dikerjakan';
+    public const STATUS_SELESAI  = 'Selesai';
+    public const STATUS_BATAL = 'batal';
     public const PAYMENT_STATUS_UNPAID = 'Belum Lunas';
     public const PAYMENT_STATUS_PAID = 'Lunas';
 
@@ -81,7 +81,7 @@ class Booking extends Model
      */
     public function layanan(): BelongsToMany
     {
-        return $this->belongsToMany(Service::class, 'layanan_pemesanan', 'id_pemesanan', 'id_layanan')
+        return $this->belongsToMany(Layanan::class, 'layanan_pemesanan', 'id_pemesanan', 'id_layanan')
                     ->withPivot('harga_saat_pesan')
                     ->withTimestamps();
     }
@@ -91,7 +91,7 @@ class Booking extends Model
      */
     public function itemPemesanan(): HasMany
     {
-        return $this->hasMany(BookingItem::class, 'id_pemesanan');
+        return $this->hasMany(ItemPemesanan::class, 'id_pemesanan');
     }
 
     /**
@@ -121,7 +121,7 @@ class Booking extends Model
      */
     public function sukuCadang(): BelongsToMany
     {
-        return $this->belongsToMany(Sparepart::class, 'item_pemesanan', 'id_pemesanan', 'id_suku_cadang')
+        return $this->belongsToMany(SukuCadang::class, 'item_pemesanan', 'id_pemesanan', 'id_suku_cadang')
                     ->withPivot('jumlah', 'harga_saat_ini')
                     ->withTimestamps();
     }
@@ -131,7 +131,7 @@ class Booking extends Model
      */
     public function scopeSelesai($query)
     {
-        return $query->where('status', self::STATUS_COMPLETED);
+        return $query->where('status', self::STATUS_SELESAI);
     }
 
     /**
@@ -139,7 +139,7 @@ class Booking extends Model
      */
     public function scopeMenunggu($query)
     {
-        return $query->where('status', self::STATUS_PENDING);
+        return $query->where('status', self::STATUS_MENUNGGU);
     }
 
     /**
@@ -147,15 +147,15 @@ class Booking extends Model
      */
     public function scopeDikonfirmasi($query)
     {
-        return $query->where('status', self::STATUS_CONFIRMED);
+        return $query->where('status', self::STATUS_DIKONFIRMASI);
     }
 
     /**
      * Query scope: Filter pemesanan yang sedang diproses
      */
-    public function scopeDiproses($query)
+    public function scopeDikerjakan($query)
     {
-        return $query->where('status', self::STATUS_IN_PROGRESS);
+        return $query->where('status', self::STATUS_DIKERJAKAN);
     }
 
     /**
@@ -174,3 +174,4 @@ class Booking extends Model
         return $query->where('status_pembayaran', self::PAYMENT_STATUS_UNPAID);
     }
 }
+

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class BookingItem extends Model
+class ItemPemesanan extends Model
 {
     use HasFactory;
 
@@ -23,7 +23,7 @@ class BookingItem extends Model
      */
     public function pemesanan()
     {
-        return $this->belongsTo(Booking::class, 'id_pemesanan');
+        return $this->belongsTo(Pemesanan::class, 'id_pemesanan');
     }
 
     /**
@@ -31,6 +31,6 @@ class BookingItem extends Model
      */
     public function sukuCadang()
     {
-        return $this->belongsTo(Sparepart::class, 'id_suku_cadang');
+        return $this->belongsTo(SukuCadang::class, 'id_suku_cadang');
     }
 }

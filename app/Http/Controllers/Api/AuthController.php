@@ -5,93 +5,84 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\RoleNormalizer;
+use App\Traits\ApiResponseTrait;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
+    use ApiResponseTrait;
+
     /**
      * Registrasi pengguna baru.
      */
-    public function daftar(Request $request)
+    public function daftar(RegisterRequest $request)
     {
-        $tabelPengguna = (new User())->getTable();
+        try {
+            $data = $request->validated();
+            $nomorBersih = preg_replace('/[^0-9]/', '', $data['no_telepon']);
 
-        $dataTervalidasi = $request->validate([
-            'nama'       => 'required|string|max:255',
-            'email'      => ['nullable', 'string', 'email', 'max:255', Rule::unique($tabelPengguna, 'email')],
-            'no_telepon' => 'required|string|max:20',
-            'password'   => 'required|string|min:8',
-        ]);
+            // Cek apakah nomor telepon sudah terdaftar
+            $penggunaSudahAda = User::where('no_telepon', $nomorBersih)->first();
+            if ($penggunaSudahAda) {
+                return $this->errorResponse('Nomor telepon sudah terdaftar. Silakan login.', 422);
+            }
 
-        // Hapus karakter selain angka dari nomor telepon (spasi, strip, dll)
-        $nomorBersih = preg_replace('/[^0-9]/', '', $dataTervalidasi['no_telepon']);
+            // Buat akun baru
+            $pengguna = User::create([
+                'nama'       => $data['nama'],
+                'email'      => $data['email'] ?? $nomorBersih . '@krgarage.com',
+                'no_telepon' => $nomorBersih,
+                'password'   => Hash::make($data['password']),
+                'role'       => 'pelanggan',
+            ]);
 
-        // Cek apakah nomor telepon sudah terdaftar
-        $penggunaSudahAda = User::where('no_telepon', $nomorBersih)->first();
+            $token = $pengguna->createToken('auth_token')->plainTextToken;
 
-        if ($penggunaSudahAda) {
-            return response()->json([
-                'message' => 'Nomor telepon sudah terdaftar. Silakan login.',
-            ], 422);
+            return $this->successResponse('Registrasi berhasil!', new UserResource($pengguna), 201, [
+                'access_token' => $token
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('AuthController@daftar: ' . $e->getMessage());
+            return $this->errorResponse('Gagal melakukan pendaftaran.', 500, $e);
         }
-
-        // Buat akun baru
-        $pengguna = User::create([
-            'nama'       => $dataTervalidasi['nama'],
-            'email'      => $dataTervalidasi['email'] ?? $nomorBersih . '@krgarage.com',
-            'no_telepon' => $nomorBersih,
-            'password'   => Hash::make($dataTervalidasi['password']),
-            'role'       => 'pelanggan',
-        ]);
-
-        $token = $pengguna->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message'      => 'Registrasi berhasil!',
-            'access_token' => $token,
-            'user'         => $pengguna,
-        ]);
     }
 
     /**
      * Login pengguna.
      */
-    public function masuk(Request $request)
+    public function masuk(LoginRequest $request)
     {
-        $kredensial = $request->validate([
-            'email'    => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        try {
+            $kredensial = $request->validated();
 
-        // Periksa kredensial login
-        if (!Auth::attempt($kredensial)) {
-            return response()->json(['message' => 'Email atau password salah'], 401);
+            if (!Auth::attempt($kredensial)) {
+                return $this->errorResponse('Email atau password salah', 401);
+            }
+
+            $pengguna = Auth::user();
+            $token    = $pengguna->createToken('auth_token')->plainTextToken;
+
+            $roleTernormalisasi = RoleNormalizer::normalizeOrNull($pengguna->role);
+            if ($roleTernormalisasi && $roleTernormalisasi !== $pengguna->role) {
+                $pengguna->forceFill(['role' => $roleTernormalisasi])->save();
+            }
+
+            return $this->successResponse('Login berhasil!', new UserResource($pengguna), 200, [
+                'access_token' => $token,
+                'token'        => $token,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('AuthController@masuk: ' . $e->getMessage());
+            return $this->errorResponse('Gagal melakukan login.', 500, $e);
         }
-
-        $pengguna = Auth::user();
-        $token    = $pengguna->createToken('auth_token')->plainTextToken;
-
-        $roleTernormalisasi = RoleNormalizer::normalizeOrNull($pengguna->role);
-        if ($roleTernormalisasi && $roleTernormalisasi !== $pengguna->role) {
-            $pengguna->forceFill(['role' => $roleTernormalisasi])->save();
-        }
-
-        $roleUntukResponse = $roleTernormalisasi ?? ($pengguna->role ?: RoleNormalizer::normalize(null));
-
-        return response()->json([
-            'access_token' => $token,
-            'token'        => $token,
-            'user'         => [
-                'id'         => $pengguna->id,
-                'nama'       => $pengguna->nama,
-                'email'      => $pengguna->email,
-                'role'       => $roleUntukResponse,
-                'no_telepon' => $pengguna->no_telepon,
-            ],
-        ]);
     }
 
     /**
@@ -99,14 +90,17 @@ class AuthController extends Controller
      */
     public function keluar(Request $request)
     {
-        $pengguna = $request->user();
+        try {
+            $pengguna = $request->user();
 
-        if ($pengguna && $pengguna->currentAccessToken()) {
-            $pengguna->currentAccessToken()->delete();
+            if ($pengguna && $pengguna->currentAccessToken()) {
+                $pengguna->currentAccessToken()->delete();
+            }
+
+            return $this->successResponse('Logout berhasil.');
+        } catch (\Exception $e) {
+            Log::error('AuthController@keluar: ' . $e->getMessage());
+            return $this->errorResponse('Gagal melakukan logout.', 500, $e);
         }
-
-        return response()->json([
-            'message' => 'Logout berhasil.',
-        ]);
     }
 }

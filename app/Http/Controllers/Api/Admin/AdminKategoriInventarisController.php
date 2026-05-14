@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\InventoryCategory;
+use App\Models\KategoriInventaris;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class AdminInventoryCategoryController extends Controller
+class AdminKategoriInventarisController extends Controller
 {
     public function index()
     {
-        $categories = InventoryCategory::query()
+        $categories = KategoriInventaris::query()
             ->orderBy('nama')
             ->get();
 
@@ -36,7 +36,7 @@ class AdminInventoryCategoryController extends Controller
             ], 422);
         }
 
-        $category = InventoryCategory::create([
+        $category = KategoriInventaris::create([
             'nama' => trim($request->nama),
         ]);
 
@@ -47,3 +47,4 @@ class AdminInventoryCategoryController extends Controller
         ], 201);
     }
 }
+

@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\Sparepart;
+use App\Models\SukuCadang;
 
-class SparepartSeeder extends Seeder
+class SukuCadangSeeder extends Seeder
 {
     /**
      * Run the database seeds.
@@ -124,10 +124,12 @@ class SparepartSeeder extends Seeder
         ];
 
         foreach ($spareparts as $sparepart) {
-            Sparepart::create($sparepart);
+            SukuCadang::create($sparepart);
         }
 
-        $this->command->info('✅ Sparepart seeder completed: 12 items created (Vespa 2-Tak)');
+        $this->command->info('✅ SukuCadang seeder completed: 12 items created (Vespa 2-Tak)');
         $this->command->info('⚠️  Low stock items: Kampas Rem Depan (3), Kabel Gas (2), Karburator (2)');
     }
 }
+
+

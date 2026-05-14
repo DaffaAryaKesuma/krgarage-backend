@@ -2,17 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\Booking;
-use App\Models\BookingItem;
-use App\Models\Sparepart;
+use App\Models\Pemesanan;
+use App\Models\ItemPemesanan;
+use App\Models\SukuCadang;
 use Illuminate\Database\Eloquent\Collection;
 
-class BookingSparepartService
+class PemesananSukuCadangService
 {
     /**
      * Ambil data pemesanan beserta semua relasinya.
      */
-    public function ambilPemesananDenganRelasi(Booking $pemesanan): Booking
+    public function ambilPemesananDenganRelasi(Pemesanan $pemesanan): Pemesanan
     {
         return $pemesanan->load(['pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang']);
     }
@@ -20,9 +20,9 @@ class BookingSparepartService
     /**
      * Tambahkan suku cadang ke dalam pemesanan.
      */
-    public function tambahSukuCadang(Booking $pemesanan, int $idSukuCadang, int $jumlah): array
+    public function tambahSukuCadang(Pemesanan $pemesanan, int $idSukuCadang, int $jumlah): array
     {
-        $sukuCadang = Sparepart::findOrFail($idSukuCadang);
+        $sukuCadang = SukuCadang::findOrFail($idSukuCadang);
 
         // Cek apakah stok mencukupi
         if ($sukuCadang->jumlah_stok < $jumlah) {
@@ -33,7 +33,7 @@ class BookingSparepartService
         }
 
         // Cek apakah suku cadang sudah pernah ditambahkan ke pemesanan ini
-        $itemSudahAda = BookingItem::where('id_pemesanan', $pemesanan->id)
+        $itemSudahAda = ItemPemesanan::where('id_pemesanan', $pemesanan->id)
             ->where('id_suku_cadang', $sukuCadang->id)
             ->first();
 
@@ -44,7 +44,7 @@ class BookingSparepartService
             $itemPemesanan = $itemSudahAda;
         } else {
             // Buat item pemesanan baru
-            $itemPemesanan = BookingItem::create([
+            $itemPemesanan = ItemPemesanan::create([
                 'id_pemesanan'  => $pemesanan->id,
                 'id_suku_cadang' => $sukuCadang->id,
                 'jumlah'        => $jumlah,
@@ -67,7 +67,7 @@ class BookingSparepartService
     /**
      * Hapus suku cadang dari pemesanan.
      */
-    public function hapusSukuCadang(Booking $pemesanan, int $idItemPemesanan): array
+    public function hapusSukuCadang(Pemesanan $pemesanan, int $idItemPemesanan): array
     {
         $itemPemesanan = $pemesanan->itemPemesanan()->find($idItemPemesanan);
 
@@ -80,7 +80,7 @@ class BookingSparepartService
         }
 
         // Tidak bisa hapus suku cadang jika pemesanan sudah selesai
-        if ($pemesanan->status === Booking::STATUS_COMPLETED) {
+        if ($pemesanan->status === Pemesanan::STATUS_SELESAI) {
             return [
                 'success'     => false,
                 'message'     => 'Tidak dapat menghapus suku cadang dari pemesanan yang sudah selesai',
@@ -104,7 +104,7 @@ class BookingSparepartService
      */
     public function ambilSukuCadangTersedia(): Collection
     {
-        return Sparepart::tersedia()
+        return SukuCadang::tersedia()
             ->orderBy('nama_suku_cadang', 'asc')
             ->get();
     }
@@ -112,7 +112,7 @@ class BookingSparepartService
     /**
      * Kurangi stok suku cadang saat pemesanan selesai.
      */
-    public function kurangiStokSukuCadang(Booking $pemesanan): array
+    public function kurangiStokSukuCadang(Pemesanan $pemesanan): array
     {
         $daftarItem = $pemesanan->itemPemesanan()->with('sukuCadang')->get();
         $ringkasanPerubahanStok = [];
@@ -142,3 +142,4 @@ class BookingSparepartService
         return $ringkasanPerubahanStok;
     }
 }
+

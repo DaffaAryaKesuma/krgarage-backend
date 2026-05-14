@@ -2,7 +2,7 @@
 
 namespace App\Mail;
 
-use App\Models\Booking;
+use App\Models\Pemesanan;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,22 +10,18 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class BookingStatusUpdateMail extends Mailable
+class EmailKonfirmasiPemesanan extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $pemesanan;
-    public $judulEmail;
-    public $pesanEmail;
+    public $booking;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Booking $pemesanan, string $judulEmail, string $pesanEmail)
+    public function __construct(Pemesanan $booking)
     {
-        $this->pemesanan = $pemesanan;
-        $this->judulEmail = $judulEmail;
-        $this->pesanEmail = $pesanEmail;
+        $this->booking = $booking;
     }
 
     /**
@@ -34,7 +30,7 @@ class BookingStatusUpdateMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Pembaruan Pesanan KRGarage: " . $this->judulEmail,
+            subject: 'Konfirmasi Pemesanan Servis - KR Garage',
         );
     }
 
@@ -44,7 +40,7 @@ class BookingStatusUpdateMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            markdown: "emails.booking.status_update",
+            markdown: 'emails.booking.confirmed',
         );
     }
 
@@ -58,3 +54,4 @@ class BookingStatusUpdateMail extends Mailable
         return [];
     }
 }
+

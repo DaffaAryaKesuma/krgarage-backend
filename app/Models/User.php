@@ -57,7 +57,7 @@ class User extends Authenticatable
      */
     public function pemesanan(): HasMany
     {
-        return $this->hasMany(Booking::class, 'id_pengguna');
+        return $this->hasMany(Pemesanan::class, 'id_pengguna');
     }
 
     /**
@@ -65,7 +65,7 @@ class User extends Authenticatable
      */
     public function pemesananDitangani(): HasMany
     {
-        return $this->hasMany(Booking::class, 'id_mekanik');
+        return $this->hasMany(Pemesanan::class, 'id_mekanik');
     }
 
     /**
@@ -73,7 +73,7 @@ class User extends Authenticatable
      */
     public function notifikasi(): HasMany
     {
-        return $this->hasMany(Notification::class, 'id_pengguna');
+        return $this->hasMany(Notifikasi::class, 'id_pengguna');
     }
 
     /**
@@ -100,3 +100,4 @@ class User extends Authenticatable
         return $query->whereIn('role', ['pelanggan', 'customer']);
     }
 }
+
