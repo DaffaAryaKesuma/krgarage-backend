@@ -23,7 +23,7 @@ class SimpanSukuCadangRequest extends FormRequest
     {
         return [
             'nama_suku_cadang'   => 'required|string|max:255',
-            'kategori'           => 'required|string|max:255',
+            'id_kategori'        => 'required|exists:kategori_suku_cadang,id',
             'jumlah_stok'        => 'required|integer|min:0',
             'harga_beli'         => 'required|numeric|min:0',
             'harga_jual'         => 'required|numeric|min:0',

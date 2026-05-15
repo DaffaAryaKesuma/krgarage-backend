@@ -238,12 +238,13 @@ class PemilikController extends Controller
     {
         try {
             $stokMenipis = SukuCadang::whereRaw('jumlah_stok <= batas_minimal_stok')
+                ->with('kategori:id,nama')
                 ->orderBy('jumlah_stok', 'asc')
-                ->get(['id', 'nama_suku_cadang', 'kategori', 'jumlah_stok', 'batas_minimal_stok', 'harga_beli'])
+                ->get(['id', 'nama_suku_cadang', 'id_kategori', 'jumlah_stok', 'batas_minimal_stok', 'harga_beli'])
                 ->map(fn($item) => [
                     'id'           => $item->id,
                     'nama_barang'  => $item->nama_suku_cadang,
-                    'kategori'     => $item->kategori,
+                    'kategori'     => $item->kategori->nama ?? '-',
                     'jumlah_stok'  => $item->jumlah_stok,
                     'minimum_stok' => $item->batas_minimal_stok,
                     'harga_beli'   => $item->harga_beli,
@@ -286,26 +287,22 @@ class PemilikController extends Controller
             $tahun = $request->query('year', date('Y'));
 
             $pendapatan = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
+                ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
                 ->whereYear('tanggal_pemesanan', $tahun)
                 ->whereMonth('tanggal_pemesanan', $bulan)
                 ->sum('total_harga');
 
-            // Hitung modal
-            $biayaSukuCadang = DB::table('item_pemesanan')
+            // Hitung pengeluaran riil (modal suku cadang yang terjual)
+            $pengeluaran = DB::table('item_pemesanan')
                 ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
+                ->join('suku_cadang', 'item_pemesanan.id_suku_cadang', '=', 'suku_cadang.id')
                 ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
+                ->where('pemesanan.status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
                 ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
                 ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
-                ->sum(DB::raw('item_pemesanan.harga_saat_pesan * item_pemesanan.jumlah'));
+                ->sum(DB::raw('suku_cadang.harga_beli * item_pemesanan.jumlah'));
                 
-            $biayaLayanan = DB::table('pemesanan_layanan')
-                ->join('pemesanan', 'pemesanan_layanan.id_pemesanan', '=', 'pemesanan.id')
-                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
-                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
-                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
-                ->sum('pemesanan_layanan.harga_saat_pesan');
-                
-            $marginKeuntungan = $pendapatan > 0 ? (($pendapatan - $biayaSukuCadang) / $pendapatan) * 100 : 0;
+            $keuntungan = $pendapatan - $pengeluaran;
 
             $totalPemesananSelesai = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
                 ->whereYear('tanggal_pemesanan', $tahun)
@@ -342,8 +339,8 @@ class PemilikController extends Controller
                 ],
                 'finansial' => [
                     'pendapatan_kotor' => $pendapatan,
-                    'estimasi_modal_suku_cadang' => $biayaSukuCadang,
-                    'margin_keuntungan_persen' => round($marginKeuntungan, 2)
+                    'pengeluaran' => $pengeluaran,
+                    'keuntungan_bersih' => $keuntungan
                 ],
                 'operasional' => [
                     'total_pemesanan_selesai' => $totalPemesananSelesai,

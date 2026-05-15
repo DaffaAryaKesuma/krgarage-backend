@@ -28,13 +28,15 @@ class Notifikasi extends Model
     ];
 
     // Konstanta tipe notifikasi
-    const TYPE_BOOKING_CONFIRMED   = 'booking_confirmed';
-    const TYPE_BOOKING_IN_PROGRESS = 'booking_in_progress';
-    const TYPE_BOOKING_COMPLETED   = 'booking_completed';
-    const TYPE_BOOKING_CANCELLED   = 'booking_cancelled';
-    const TYPE_BOOKING_ASSIGNED    = 'booking_assigned';
-    const TYPE_LOW_STOCK           = 'low_stock';
-    const TYPE_PAYMENT_RECEIVED    = 'payment_received';
+    const TIPE_PEMESANAN_DIKONFIRMASI = 'pemesanan_dikonfirmasi';
+    const TIPE_PEMESANAN_DIPROSES     = 'pemesanan_diproses';
+    const TIPE_PEMESANAN_SELESAI      = 'pemesanan_selesai';
+    const TIPE_PEMESANAN_DIBATALKAN   = 'pemesanan_dibatalkan';
+    const TIPE_PEMESANAN_DITUGASKAN   = 'pemesanan_ditugaskan';
+    const TIPE_PEMESANAN_DIHAPUS      = 'pemesanan_dihapus';
+    const TIPE_PEMESANAN_DIPERBARUI   = 'pemesanan_diperbarui';
+    const TIPE_STOK_MENIPIS           = 'stok_menipis';
+    const TIPE_PEMBAYARAN_DITERIMA    = 'pembayaran_diterima';
 
     /**
      * Relasi: Notifikasi milik seorang pengguna.

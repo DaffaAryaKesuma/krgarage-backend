@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\SukuCadang;
+use App\Models\KategoriSukuCadang;
 
 class SukuCadangSeeder extends Seeder
 {
@@ -12,10 +13,20 @@ class SukuCadangSeeder extends Seeder
      */
     public function run(): void
     {
+        $categories = [
+            'Oli', 'Busi', 'Kampas Rem', 'Kopling', 'Kabel', 'Filter', 'Bearing', 'Aki', 'Karburator'
+        ];
+
+        $kategoriMap = [];
+        foreach ($categories as $cat) {
+            $kategoriModel = KategoriSukuCadang::firstOrCreate(['nama' => $cat]);
+            $kategoriMap[$cat] = $kategoriModel->id;
+        }
+
         $spareparts = [
             [
                 'nama_suku_cadang' => 'Oli 2-Tak Castrol Power1',
-                'kategori' => 'Oli',
+                'id_kategori' => $kategoriMap['Oli'],
                 'jumlah_stok' => 25,
                 'harga_beli' => 35000,
                 'harga_jual' => 50000,
@@ -24,7 +35,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Busi NGK BR8ES',
-                'kategori' => 'Busi',
+                'id_kategori' => $kategoriMap['Busi'],
                 'jumlah_stok' => 20,
                 'harga_beli' => 18000,
                 'harga_jual' => 28000,
@@ -33,7 +44,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kampas Rem Depan',
-                'kategori' => 'Kampas Rem',
+                'id_kategori' => $kategoriMap['Kampas Rem'],
                 'jumlah_stok' => 3,
                 'harga_beli' => 45000,
                 'harga_jual' => 70000,
@@ -42,7 +53,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kampas Kopling Set',
-                'kategori' => 'Kopling',
+                'id_kategori' => $kategoriMap['Kopling'],
                 'jumlah_stok' => 8,
                 'harga_beli' => 85000,
                 'harga_jual' => 130000,
@@ -51,7 +62,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kabel Gas Original',
-                'kategori' => 'Kabel',
+                'id_kategori' => $kategoriMap['Kabel'],
                 'jumlah_stok' => 2,
                 'harga_beli' => 35000,
                 'harga_jual' => 55000,
@@ -60,7 +71,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Filter Udara Karburator',
-                'kategori' => 'Filter',
+                'id_kategori' => $kategoriMap['Filter'],
                 'jumlah_stok' => 18,
                 'harga_beli' => 25000,
                 'harga_jual' => 40000,
@@ -69,7 +80,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kampas Rem Belakang',
-                'kategori' => 'Kampas Rem',
+                'id_kategori' => $kategoriMap['Kampas Rem'],
                 'jumlah_stok' => 12,
                 'harga_beli' => 40000,
                 'harga_jual' => 65000,
@@ -78,7 +89,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Bearing Roda Depan',
-                'kategori' => 'Bearing',
+                'id_kategori' => $kategoriMap['Bearing'],
                 'jumlah_stok' => 15,
                 'harga_beli' => 30000,
                 'harga_jual' => 50000,
@@ -87,7 +98,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kabel Rem Depan',
-                'kategori' => 'Kabel',
+                'id_kategori' => $kategoriMap['Kabel'],
                 'jumlah_stok' => 6,
                 'harga_beli' => 28000,
                 'harga_jual' => 45000,
@@ -96,7 +107,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Aki 6V 4Ah',
-                'kategori' => 'Aki',
+                'id_kategori' => $kategoriMap['Aki'],
                 'jumlah_stok' => 4,
                 'harga_beli' => 120000,
                 'harga_jual' => 175000,
@@ -105,7 +116,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Karburator Dell\'Orto SI 20/20',
-                'kategori' => 'Karburator',
+                'id_kategori' => $kategoriMap['Karburator'],
                 'jumlah_stok' => 2,
                 'harga_beli' => 450000,
                 'harga_jual' => 650000,
@@ -114,7 +125,7 @@ class SukuCadangSeeder extends Seeder
             ],
             [
                 'nama_suku_cadang' => 'Kabel Kopling',
-                'kategori' => 'Kabel',
+                'id_kategori' => $kategoriMap['Kabel'],
                 'jumlah_stok' => 8,
                 'harga_beli' => 32000,
                 'harga_jual' => 50000,

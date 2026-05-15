@@ -72,7 +72,8 @@ class PemesananController extends Controller
                 'vespa:id,model,plat_nomor,tahun_produksi',
                 'layanan:id,nama_layanan',
                 'mekanik:id,nama,email',
-                'itemPemesanan.sukuCadang:id,nama_suku_cadang,kategori',
+                'itemPemesanan.sukuCadang:id,nama_suku_cadang,id_kategori',
+                'itemPemesanan.sukuCadang.kategori:id,nama',
             ]);
 
             return $this->successResponse('Detail pemesanan berhasil dimuat', new PemesananResource($pemesanan));
@@ -177,7 +178,7 @@ class PemesananController extends Controller
             foreach ($daftarAdmin as $admin) {
                 $this->layananNotifikasi->buatNotifikasi(
                     $admin->id,
-                    Notifikasi::TYPE_BOOKING_CANCELLED,
+                    Notifikasi::TIPE_PEMESANAN_DIBATALKAN,
                     'Pemesanan Dibatalkan',
                     "Pemesanan #{$pemesanan->kode_pemesanan} dibatalkan oleh pelanggan.",
                     $pemesanan->id,
@@ -193,5 +194,6 @@ class PemesananController extends Controller
         }
     }
 }
+
 
 

@@ -33,8 +33,8 @@ class AdminSukuCadangController extends Controller
             $query = SukuCadang::query();
 
             // Filter berdasarkan kategori
-            if ($request->has('kategori')) {
-                $query->where('kategori', $request->kategori);
+            if ($request->has('id_kategori')) {
+                $query->where('id_kategori', $request->id_kategori);
             }
 
             // Filter stok menipis

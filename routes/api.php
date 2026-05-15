@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\Admin\AdminPemesananController;
 use App\Http\Controllers\Api\Admin\AdminLayananController;
 use App\Http\Controllers\Api\Admin\AdminLaporanKeuanganController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
-use App\Http\Controllers\Api\Admin\AdminKategoriInventarisController;
+use App\Http\Controllers\Api\Admin\AdminKategoriSukuCadangController;
 use App\Http\Controllers\Api\Admin\AdminSukuCadangController;
 use App\Http\Controllers\Api\Admin\KaryawanController;
 use App\Http\Controllers\Api\Mekanik\MekanikDashboardController;
@@ -82,8 +82,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('/laporan/keuangan', [AdminLaporanKeuanganController::class, 'index']);
 
     // Rute untuk manajemen inventori (suku cadang)
-    Route::get('/inventori/kategori', [AdminKategoriInventarisController::class, 'index']);
-    Route::post('/inventori/kategori', [AdminKategoriInventarisController::class, 'store']);
+    Route::get('/inventori/kategori', [AdminKategoriSukuCadangController::class, 'index']);
+    Route::post('/inventori/kategori', [AdminKategoriSukuCadangController::class, 'store']);
     Route::get('/inventori', [AdminSukuCadangController::class, 'index']);
     Route::get('/inventori/stok-menipis', [AdminSukuCadangController::class, 'peringatanStokMenipis']);
     Route::post('/inventori', [AdminSukuCadangController::class, 'store']);
@@ -126,5 +126,7 @@ Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(fu
     Route::get('/suku-cadang-terlaris', [PemilikController::class, 'sukuCadangTerlaris']);
     Route::get('/stok-menipis', [PemilikController::class, 'stokMenipis']);
     Route::get('/mekanik-online', [PemilikController::class, 'getOnlineMechanicsCount']);
+    Route::get('/ringkasan', [PemilikController::class, 'ringkasan']);
+    Route::get('/metrik-keuangan', [PemilikController::class, 'metrikKeuangan']);
 });
 

@@ -23,7 +23,7 @@ class UpdateSukuCadangRequest extends FormRequest
     {
         return [
             'nama_suku_cadang'   => 'sometimes|string|max:255',
-            'kategori'           => 'sometimes|string|max:255',
+            'id_kategori'        => 'sometimes|exists:kategori_suku_cadang,id',
             'harga_beli'         => 'sometimes|numeric|min:0',
             'harga_jual'         => 'sometimes|numeric|min:0',
             'batas_minimal_stok' => 'sometimes|integer|min:0',

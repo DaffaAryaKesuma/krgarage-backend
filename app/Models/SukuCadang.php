@@ -16,7 +16,7 @@ class SukuCadang extends Model
      */
     protected $fillable = [
         'nama_suku_cadang',
-        'kategori',
+        'id_kategori',
         'jumlah_stok',
         'harga_beli',
         'harga_jual',
@@ -56,6 +56,14 @@ class SukuCadang extends Model
     public function scopeStokMenipis($query)
     {
         return $query->whereRaw('jumlah_stok <= batas_minimal_stok');
+    }
+
+    /**
+     * Relasi ke KategoriSukuCadang
+     */
+    public function kategori()
+    {
+        return $this->belongsTo(KategoriSukuCadang::class, 'id_kategori', 'id');
     }
 }
 

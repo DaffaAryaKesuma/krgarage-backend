@@ -69,7 +69,7 @@ class NotifikasiService
         
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
-            'booking_completed',
+            Notifikasi::TIPE_PEMESANAN_SELESAI,
             $judul,
             $pesan,
             $pemesanan->id
@@ -88,7 +88,7 @@ class NotifikasiService
 
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
-            'booking_confirmed',
+            Notifikasi::TIPE_PEMESANAN_DIKONFIRMASI,
             $judul,
             $pesan,
             $pemesanan->id
@@ -107,7 +107,7 @@ class NotifikasiService
 
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
-            'booking_in_progress',
+            Notifikasi::TIPE_PEMESANAN_DIPROSES,
             $judul,
             $pesan,
             $pemesanan->id
@@ -126,7 +126,7 @@ class NotifikasiService
 
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
-            'booking_cancelled',
+            Notifikasi::TIPE_PEMESANAN_DIBATALKAN,
             $judul,
             $pesan,
             $pemesanan->id
@@ -149,7 +149,7 @@ class NotifikasiService
         foreach ($daftarAdmin as $admin) {
             $this->buatNotifikasi(
                 $admin->id,
-                'booking_confirmed',
+                Notifikasi::TIPE_PEMESANAN_DIKONFIRMASI,
                 'Pemesanan Baru',
                 "Pemesanan baru #{$pemesanan->kode_pemesanan} dari {$namaPelanggan}.",
                 $pemesanan->id,
@@ -165,7 +165,7 @@ class NotifikasiService
     {
         $this->buatNotifikasi(
             $mekanik->id,
-            'booking_assigned',
+            Notifikasi::TIPE_PEMESANAN_DITUGASKAN,
             'Pemesanan Baru Ditugaskan',
             "Anda telah ditugaskan untuk menangani pemesanan {$pemesanan->kode_pemesanan}.",
             $pemesanan->id
@@ -179,7 +179,7 @@ class NotifikasiService
     {
         $this->buatNotifikasi(
             $idPengguna,
-            'booking_deleted',
+            Notifikasi::TIPE_PEMESANAN_DIHAPUS,
             'Pemesanan Dihapus',
             "Pemesanan {$kodePemesanan} telah dihapus oleh admin.",
             null
@@ -193,7 +193,7 @@ class NotifikasiService
     {
         $this->buatNotifikasi(
             $pemesanan->id_pengguna,
-            'booking_updated',
+            Notifikasi::TIPE_PEMESANAN_DIPERBARUI,
             'Pemesanan Diperbarui',
             $pesan,
             $pemesanan->id
@@ -224,7 +224,7 @@ class NotifikasiService
         foreach ($daftarPemilik as $pemilik) {
             $sudahPernahTerkirimKePemilik = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notifikasi::TYPE_PAYMENT_RECEIVED)
+                ->where('tipe', Notifikasi::TIPE_PEMBAYARAN_DITERIMA)
                 ->where('id_pemesanan', $pemesanan->id)
                 ->exists();
 
@@ -235,7 +235,7 @@ class NotifikasiService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notifikasi::TYPE_PAYMENT_RECEIVED,
+                    Notifikasi::TIPE_PEMBAYARAN_DITERIMA,
                     $judul,
                     $pesan,
                     $pemesanan->id
@@ -273,7 +273,7 @@ class NotifikasiService
         foreach ($daftarPemilik as $pemilik) {
             $sudahAdaNotifikasiSerupa = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notifikasi::TYPE_LOW_STOCK)
+                ->where('tipe', Notifikasi::TIPE_STOK_MENIPIS)
                 ->where('judul', $judul)
                 ->where('pesan', $pesan)
                 ->where('created_at', '>=', now()->subHours(12))
@@ -286,7 +286,7 @@ class NotifikasiService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notifikasi::TYPE_LOW_STOCK,
+                    Notifikasi::TIPE_STOK_MENIPIS,
                     $judul,
                     $pesan,
                     null
@@ -324,7 +324,7 @@ class NotifikasiService
         foreach ($daftarPemesananLunas as $pemesanan) {
             $sudahAda = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notifikasi::TYPE_PAYMENT_RECEIVED)
+                ->where('tipe', Notifikasi::TIPE_PEMBAYARAN_DITERIMA)
                 ->where('id_pemesanan', $pemesanan->id)
                 ->exists();
 
@@ -340,7 +340,7 @@ class NotifikasiService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notifikasi::TYPE_PAYMENT_RECEIVED,
+                    Notifikasi::TIPE_PEMBAYARAN_DITERIMA,
                     $judul,
                     $pesan,
                     $pemesanan->id
@@ -376,7 +376,7 @@ class NotifikasiService
 
             $sudahAda = Notifikasi::query()
                 ->where('id_pengguna', $pemilik->id)
-                ->where('tipe', Notifikasi::TYPE_LOW_STOCK)
+                ->where('tipe', Notifikasi::TIPE_STOK_MENIPIS)
                 ->where('judul', $judul)
                 ->where('pesan', $pesan)
                 ->exists();
@@ -388,7 +388,7 @@ class NotifikasiService
             try {
                 $this->buatNotifikasi(
                     $pemilik->id,
-                    Notifikasi::TYPE_LOW_STOCK,
+                    Notifikasi::TIPE_STOK_MENIPIS,
                     $judul,
                     $pesan,
                     null
@@ -402,4 +402,5 @@ class NotifikasiService
         }
     }
 }
+
 

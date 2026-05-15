@@ -17,7 +17,9 @@ class SukuCadangResource extends JsonResource
         return [
             'id' => $this->id,
             'nama_suku_cadang' => $this->nama_suku_cadang,
-            'kategori' => $this->kategori,
+            'id_kategori' => $this->id_kategori,
+            'kategori' => $this->kategori ? $this->kategori->nama : null,
+            'kategori_detail' => $this->whenLoaded('kategori'),
             'jumlah_stok' => $this->jumlah_stok,
             'harga_beli' => $this->harga_beli,
             'harga_jual' => $this->harga_jual,

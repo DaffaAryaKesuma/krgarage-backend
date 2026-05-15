@@ -3,21 +3,21 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\KategoriInventaris;
+use App\Models\KategoriSukuCadang;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class AdminKategoriInventarisController extends Controller
+class AdminKategoriSukuCadangController extends Controller
 {
     public function index()
     {
-        $categories = KategoriInventaris::query()
+        $categories = KategoriSukuCadang::query()
             ->orderBy('nama')
             ->get();
 
         return response()->json([
             'success' => true,
-            'message' => 'Daftar kategori inventori berhasil dimuat',
+            'message' => 'Daftar kategori suku cadang berhasil dimuat',
             'data' => $categories,
         ]);
     }
@@ -25,7 +25,7 @@ class AdminKategoriInventarisController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255|unique:kategori_inventori,nama',
+            'nama' => 'required|string|max:255|unique:kategori_suku_cadang,nama',
         ]);
 
         if ($validator->fails()) {
@@ -36,7 +36,7 @@ class AdminKategoriInventarisController extends Controller
             ], 422);
         }
 
-        $category = KategoriInventaris::create([
+        $category = KategoriSukuCadang::create([
             'nama' => trim($request->nama),
         ]);
 

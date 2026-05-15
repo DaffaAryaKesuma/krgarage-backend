@@ -30,7 +30,7 @@ class EmailKonfirmasiPemesanan extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Konfirmasi Pemesanan Servis - KR Garage',
+            subject: 'Konfirmasi Pemesanan Servis - KRGarage',
         );
     }
 
