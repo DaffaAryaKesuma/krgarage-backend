@@ -2,7 +2,6 @@
 namespace App\Http\Requests\Pelanggan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use App\Models\Pemesanan;
 
 class BuatPemesananRequest extends FormRequest {
     public function authorize(): bool { return true; }

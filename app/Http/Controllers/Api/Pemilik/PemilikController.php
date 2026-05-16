@@ -93,46 +93,26 @@ class PemilikController extends Controller
             $startDate = $request->query('start_date');
             $endDate   = $request->query('end_date');
 
-            // Jika ada filter tanggal, buat grafik per hari dalam rentang tersebut
-            if ($startDate && $endDate) {
-                $start = \Carbon\Carbon::parse($startDate)->startOfDay();
-                $end   = \Carbon\Carbon::parse($endDate)->endOfDay();
-
-                $labels = [];
-                $values = [];
-
-                // Selalu tampilkan per hari sesuai rentang filter
-                $current = $start->copy();
-                while ($current <= $end) {
-                    $pendapatan = Pemesanan::selesai()
-                        ->sudahDibayar()
-                        ->whereDate('updated_at', $current->toDateString())
-                        ->sum('total_harga');
-
-                    $labels[] = $current->format('d M');
-                    $values[] = (float) $pendapatan;
-                    $current->addDay();
-                }
-
-                return $this->successResponse('Tren pendapatan berhasil dimuat', [
-                    'labels' => $labels,
-                    'values' => $values,
-                ]);
+            if (!$startDate || !$endDate) {
+                return $this->errorResponse('Parameter start_date dan end_date wajib diisi', 422);
             }
 
-            // Default: 7 bulan terakhir
+            $start = \Carbon\Carbon::parse($startDate)->startOfDay();
+            $end   = \Carbon\Carbon::parse($endDate)->endOfDay();
+
             $labels = [];
             $values = [];
-            for ($i = 6; $i >= 0; $i--) {
-                $tanggal = \Carbon\Carbon::now()->subMonths($i);
+
+            $current = $start->copy();
+            while ($current <= $end) {
                 $pendapatan = Pemesanan::selesai()
                     ->sudahDibayar()
-                    ->whereMonth('updated_at', $tanggal->month)
-                    ->whereYear('updated_at', $tanggal->year)
+                    ->whereDate('tanggal_pemesanan', $current->toDateString())
                     ->sum('total_harga');
 
-                $labels[] = $tanggal->translatedFormat('M Y');
+                $labels[] = $current->format('d M');
                 $values[] = (float) $pendapatan;
+                $current->addDay();
             }
 
             return $this->successResponse('Tren pendapatan berhasil dimuat', [
@@ -145,6 +125,7 @@ class PemilikController extends Controller
             return $this->errorResponse('Gagal mengambil tren pendapatan', 500, $e);
         }
     }
+
 
     public function transaksi(Request $request)
     {
@@ -190,7 +171,7 @@ class PemilikController extends Controller
                 ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
                 ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
                 ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
-                ->select('layanan.nama_layanan', DB::raw('count(*) as total'))
+                ->select('layanan.id', 'layanan.nama_layanan', DB::raw('count(*) as total'))
                 ->groupBy('layanan.id', 'layanan.nama_layanan')
                 ->orderByDesc('total')
                 ->limit(5)
@@ -309,8 +290,7 @@ class PemilikController extends Controller
                 ->whereMonth('tanggal_pemesanan', $bulan)
                 ->count();
                 
-            $totalPelanggan = User::where('role', 'pelanggan')->count();
-            
+
             $mekanikTerbaik = Pemesanan::select('id_mekanik', DB::raw('count(*) as total_pekerjaan'))
                 ->with('mekanik:id,nama')
                 ->where('status', Pemesanan::STATUS_SELESAI)
@@ -344,7 +324,6 @@ class PemilikController extends Controller
                 ],
                 'operasional' => [
                     'total_pemesanan_selesai' => $totalPemesananSelesai,
-                    'total_pelanggan_aktif' => $totalPelanggan
                 ],
                 'performa' => [
                     'mekanik_terbaik' => $mekanikTerbaik ? [

@@ -44,6 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     Route::post('/notifikasi/{id}/tandai-dibaca', [NotifikasiController::class, 'tandaiDibaca']);
     Route::post('/notifikasi/tandai-semua-dibaca', [NotifikasiController::class, 'tandaiSemuaDibaca']);
+
+    // Rute Profil
+    Route::put('/profil', [AuthController::class, 'perbaruiProfil']);
+    Route::put('/profil/password', [AuthController::class, 'gantiPassword']);
 });
 
 // Rute untuk pelanggan

@@ -30,7 +30,7 @@ class AdminSukuCadangController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = SukuCadang::query();
+            $query = SukuCadang::with('kategori');
 
             // Filter berdasarkan kategori
             if ($request->has('id_kategori')) {
@@ -88,6 +88,7 @@ class AdminSukuCadangController extends Controller
     public function show(SukuCadang $sukuCadang)
     {
         try {
+            $sukuCadang->load('kategori');
             return $this->successResponse(
                 'Detail suku cadang berhasil dimuat',
                 new SukuCadangResource($sukuCadang)
@@ -174,7 +175,8 @@ class AdminSukuCadangController extends Controller
     public function peringatanStokMenipis()
     {
         try {
-            $sukuCadangStokMenipis = SukuCadang::stokMenipis()
+            $sukuCadangStokMenipis = SukuCadang::with('kategori')
+                ->stokMenipis()
                 ->orderBy('jumlah_stok', 'asc')
                 ->get();
 
@@ -197,7 +199,8 @@ class AdminSukuCadangController extends Controller
     public function daftarSukuCadangTersedia()
     {
         try {
-            $daftarSukuCadang = SukuCadang::tersedia()
+            $daftarSukuCadang = SukuCadang::with('kategori')
+                ->tersedia()
                 ->orderBy('nama_suku_cadang', 'asc')
                 ->get();
 

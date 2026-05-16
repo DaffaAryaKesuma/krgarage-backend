@@ -103,4 +103,61 @@ class AuthController extends Controller
             return $this->errorResponse('Gagal melakukan logout.', 500, $e);
         }
     }
+
+    /**
+     * Memperbarui informasi profil pengguna.
+     */
+    public function perbaruiProfil(Request $request)
+    {
+        try {
+            $pengguna = $request->user();
+            
+            $request->validate([
+                'nama'       => 'required|string|max:255',
+                'email'      => 'required|email|unique:users,email,' . $pengguna->id,
+                'no_telepon' => 'required|string|max:20',
+            ]);
+
+            $nomorBersih = preg_replace('/[^0-9]/', '', $request->no_telepon);
+
+            $pengguna->update([
+                'nama'       => $request->nama,
+                'email'      => $request->email,
+                'no_telepon' => $nomorBersih,
+            ]);
+
+            return $this->successResponse('Profil berhasil diperbarui!', new UserResource($pengguna));
+        } catch (\Exception $e) {
+            Log::error('AuthController@perbaruiProfil: ' . $e->getMessage());
+            return $this->errorResponse('Gagal memperbarui profil.', 500, $e);
+        }
+    }
+
+    /**
+     * Memperbarui password pengguna.
+     */
+    public function gantiPassword(Request $request)
+    {
+        try {
+            $pengguna = $request->user();
+
+            $request->validate([
+                'password_lama' => 'required|string',
+                'password_baru' => 'required|string|min:8|confirmed',
+            ]);
+
+            if (!Hash::check($request->password_lama, $pengguna->password)) {
+                return $this->errorResponse('Password lama tidak sesuai.', 422);
+            }
+
+            $pengguna->update([
+                'password' => Hash::make($request->password_baru),
+            ]);
+
+            return $this->successResponse('Password berhasil diganti!');
+        } catch (\Exception $e) {
+            Log::error('AuthController@gantiPassword: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengganti password.', 500, $e);
+        }
+    }
 }

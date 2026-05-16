@@ -8,13 +8,10 @@ class RoleNormalizer
      * @var array<string, string>
      */
     private const ROLE_ALIASES = [
-        'admin' => 'admin',
-        'mekanik' => 'mekanik',
-        'mechanic' => 'mekanik',
-        'pemilik' => 'pemilik',
-        'owner' => 'pemilik',
+        'admin'     => 'admin',
+        'mekanik'   => 'mekanik',
+        'pemilik'   => 'pemilik',
         'pelanggan' => 'pelanggan',
-        'customer' => 'pelanggan',
     ];
 
     /**
