@@ -13,8 +13,8 @@ class BuatPemesananRequest extends FormRequest {
                     return $query->where('id_pengguna', $this->user()->id);
                 }),
             ],
-            'service_ids'       => 'required|array',
-            'service_ids.*'     => 'exists:layanan,id',
+            'id_layanan'        => 'required|array',
+            'id_layanan.*'      => 'exists:layanan,id',
             'tanggal_pemesanan' => 'required|date|after_or_equal:today',
             'jam_pemesanan'     => 'required|string',
             'catatan_pelanggan' => 'nullable|string',

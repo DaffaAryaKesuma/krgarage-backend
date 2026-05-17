@@ -114,7 +114,7 @@ class AuthController extends Controller
             
             $request->validate([
                 'nama'       => 'required|string|max:255',
-                'email'      => 'required|email|unique:users,email,' . $pengguna->id,
+                'email'      => 'required|email|unique:pengguna,email,' . $pengguna->id,
                 'no_telepon' => 'required|string|max:20',
             ]);
 
@@ -143,7 +143,18 @@ class AuthController extends Controller
 
             $request->validate([
                 'password_lama' => 'required|string',
-                'password_baru' => 'required|string|min:8|confirmed',
+                'password_baru' => [
+                    'required',
+                    'string',
+                    'min:8',
+                    'confirmed',
+                    'regex:/[A-Z]/',      // minimal 1 huruf besar
+                    'regex:/[0-9]/',      // minimal 1 angka
+                ],
+            ], [
+                'password_baru.min'      => 'Password baru minimal 8 karakter.',
+                'password_baru.regex'    => 'Password baru harus mengandung minimal 1 huruf besar dan 1 angka.',
+                'password_baru.confirmed'=> 'Konfirmasi password tidak cocok.',
             ]);
 
             if (!Hash::check($request->password_lama, $pengguna->password)) {
@@ -155,6 +166,9 @@ class AuthController extends Controller
             ]);
 
             return $this->successResponse('Password berhasil diganti!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Biarkan Laravel mengembalikan 422, jangan di-wrap jadi 500
+            throw $e;
         } catch (\Exception $e) {
             Log::error('AuthController@gantiPassword: ' . $e->getMessage());
             return $this->errorResponse('Gagal mengganti password.', 500, $e);

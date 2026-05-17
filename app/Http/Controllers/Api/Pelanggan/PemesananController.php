@@ -111,7 +111,7 @@ class PemesananController extends Controller
             ]);
 
             $totalHarga = 0;
-            foreach ($data['service_ids'] as $idLayanan) {
+            foreach ($data['id_layanan'] as $idLayanan) {
                 $layanan = Layanan::findOrFail($idLayanan);
                 $pemesanan->layanan()->attach($idLayanan, ['harga_saat_pesan' => $layanan->harga]);
                 $totalHarga += $layanan->harga;
