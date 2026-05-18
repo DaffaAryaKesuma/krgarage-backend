@@ -14,14 +14,14 @@ class EmailKonfirmasiPemesanan extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $booking;
+    public $pemesanan;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Pemesanan $booking)
+    public function __construct(Pemesanan $pemesanan)
     {
-        $this->booking = $booking;
+        $this->pemesanan = $pemesanan;
     }
 
     /**
