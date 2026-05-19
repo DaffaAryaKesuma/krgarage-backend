@@ -134,11 +134,7 @@ class AdminSukuCadangController extends Controller
     public function destroy(SukuCadang $sukuCadang)
     {
         try {
-            // Cek apakah suku cadang sudah pernah digunakan di pemesanan
-            if ($sukuCadang->itemPemesanan()->count() > 0) {
-                return $this->errorResponse('Tidak dapat menghapus suku cadang yang sudah digunakan di pemesanan', 400);
-            }
-
+            // Hapus paksa suku cadang, biarkan DB set id_suku_cadang = null pada pesanan lama (krn foreign key ON DELETE SET NULL)
             $sukuCadang->delete();
 
             return $this->successResponse('Suku cadang berhasil dihapus');

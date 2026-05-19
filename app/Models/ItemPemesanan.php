@@ -14,6 +14,7 @@ class ItemPemesanan extends Model
     protected $fillable = [
         'id_pemesanan',
         'id_suku_cadang',
+        'nama_suku_cadang_saat_ini',
         'jumlah',
         'harga_saat_ini',
     ];

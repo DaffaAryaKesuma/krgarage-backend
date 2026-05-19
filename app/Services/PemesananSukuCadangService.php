@@ -47,6 +47,7 @@ class PemesananSukuCadangService
             $itemPemesanan = ItemPemesanan::create([
                 'id_pemesanan'  => $pemesanan->id,
                 'id_suku_cadang' => $sukuCadang->id,
+                'nama_suku_cadang_saat_ini' => $sukuCadang->nama_suku_cadang,
                 'jumlah'        => $jumlah,
                 'harga_saat_ini' => $sukuCadang->harga_jual,
             ]);
