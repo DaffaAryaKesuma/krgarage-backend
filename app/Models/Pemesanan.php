@@ -19,7 +19,7 @@ class Pemesanan extends Model
     public const STATUS_DIKONFIRMASI  = 'Dikonfirmasi';
     public const STATUS_DIKERJAKAN = 'Dikerjakan';
     public const STATUS_SELESAI  = 'Selesai';
-    public const STATUS_BATAL = 'batal';
+    public const STATUS_BATAL = 'Batal';
     public const PAYMENT_STATUS_UNPAID = 'Belum Lunas';
     public const PAYMENT_STATUS_PAID = 'Lunas';
 

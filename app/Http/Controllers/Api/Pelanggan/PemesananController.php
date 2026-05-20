@@ -92,13 +92,47 @@ class PemesananController extends Controller
         try {
             $data = $request->validated();
 
-            $pemesananSudahAda = Pemesanan::where('tanggal_pemesanan', $data['tanggal_pemesanan'])
-                ->where('jam_pemesanan', $data['jam_pemesanan'])
-                ->where('status', '!=', Pemesanan::STATUS_BATAL)
+            $jumlahMekanik = User::mekanik()->count();
+
+            $mekanikSibuk = Pemesanan::where('tanggal_pemesanan', $data['tanggal_pemesanan'])
+                ->whereIn('status', [
+                    Pemesanan::STATUS_MENUNGGU,
+                    Pemesanan::STATUS_DIKONFIRMASI,
+                    Pemesanan::STATUS_DIKERJAKAN,
+                ])
+                ->whereNotNull('id_mekanik')
+                ->distinct('id_mekanik')
+                ->count('id_mekanik');
+
+            $pemesananTanpaMekanik = Pemesanan::where('tanggal_pemesanan', $data['tanggal_pemesanan'])
+                ->whereIn('status', [
+                    Pemesanan::STATUS_MENUNGGU,
+                    Pemesanan::STATUS_DIKONFIRMASI,
+                    Pemesanan::STATUS_DIKERJAKAN,
+                ])
+                ->whereNull('id_mekanik')
+                ->count();
+
+            $totalTerpakai = $mekanikSibuk + $pemesananTanpaMekanik;
+
+            if ($jumlahMekanik === 0 || $totalTerpakai >= $jumlahMekanik) {
+                return $this->errorResponse('Tidak ada mekanik yang tersedia di tanggal ini. Silakan pilih tanggal lain.', 422);
+            }
+
+            // Cek apakah vespa sedang dalam pemesanan aktif
+            $vespaAktif = Pemesanan::where('id_vespa', $data['id_vespa'])
+                ->whereIn('status', [
+                    Pemesanan::STATUS_MENUNGGU,
+                    Pemesanan::STATUS_DIKONFIRMASI,
+                    Pemesanan::STATUS_DIKERJAKAN,
+                ])
                 ->first();
 
-            if ($pemesananSudahAda) {
-                return $this->errorResponse('Jam pemesanan ini sudah dipesan. Silakan pilih jam lain.', 422);
+            if ($vespaAktif) {
+                return $this->errorResponse(
+                    'Vespa ini masih memiliki pemesanan yang sedang aktif. Selesaikan atau batalkan pemesanan sebelumnya terlebih dahulu.',
+                    422
+                );
             }
 
             $pemesanan = $request->user()->pemesanan()->create([
@@ -140,7 +174,9 @@ class PemesananController extends Controller
     }
 
     /**
-     * Mengecek slot jam yang sudah terisi pada tanggal tertentu.
+     * Mengecek slot jam yang sudah terisi penuh pada tanggal tertentu.
+     * Slot dianggap penuh jika semua kapasitas mekanik di hari tersebut sudah terisi,
+     * baik oleh mekanik yang sudah ditugaskan maupun pemesanan yang belum ada mekaniknya.
      */
     public function cekSlot(Request $request)
     {
@@ -148,11 +184,40 @@ class PemesananController extends Controller
             $tanggal = $request->query('date');
             if (!$tanggal) return $this->successResponse('Slot kosong', []);
 
-            $jamTerpesan = Pemesanan::where('tanggal_pemesanan', $tanggal)
-                            ->where('status', '!=', Pemesanan::STATUS_BATAL)
-                            ->pluck('jam_pemesanan');
+            $jumlahMekanik = User::mekanik()->count();
 
-            return $this->successResponse('Daftar slot terpesan', $jamTerpesan);
+            if ($jumlahMekanik === 0) {
+                $semuaSlot = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+                return $this->successResponse('Tidak ada mekanik tersedia', $semuaSlot);
+            }
+
+            $statusAktif = [
+                Pemesanan::STATUS_MENUNGGU,
+                Pemesanan::STATUS_DIKONFIRMASI,
+                Pemesanan::STATUS_DIKERJAKAN,
+            ];
+
+            // Mekanik yang sudah ditugaskan ke pemesanan aktif hari ini
+            $mekanikSibuk = Pemesanan::where('tanggal_pemesanan', $tanggal)
+                ->whereIn('status', $statusAktif)
+                ->whereNotNull('id_mekanik')
+                ->distinct('id_mekanik')
+                ->count('id_mekanik');
+
+            // Pemesanan aktif yang belum ada mekaniknya (tetap mengisi kapasitas)
+            $pemesananTanpaMekanik = Pemesanan::where('tanggal_pemesanan', $tanggal)
+                ->whereIn('status', $statusAktif)
+                ->whereNull('id_mekanik')
+                ->count();
+
+            $totalTerpakai = $mekanikSibuk + $pemesananTanpaMekanik;
+
+            if ($totalTerpakai >= $jumlahMekanik) {
+                $semuaSlot = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+                return $this->successResponse('Daftar slot terpesan', $semuaSlot);
+            }
+
+            return $this->successResponse('Daftar slot terpesan', []);
 
         } catch (\Exception $e) {
             Log::error('Pelanggan/PemesananController@cekSlot: ' . $e->getMessage());

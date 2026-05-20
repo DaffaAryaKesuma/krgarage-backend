@@ -30,6 +30,20 @@ class VespaController extends Controller
                     $vespa->save();
                 });
 
+            // Tandai vespa yang sedang memiliki pemesanan aktif
+            $idVespaAktif = \App\Models\Pemesanan::whereIn('id_vespa', $daftarVespa->pluck('id'))
+                ->whereIn('status', [
+                    \App\Models\Pemesanan::STATUS_MENUNGGU,
+                    \App\Models\Pemesanan::STATUS_DIKONFIRMASI,
+                    \App\Models\Pemesanan::STATUS_DIKERJAKAN,
+                ])
+                ->pluck('id_vespa')
+                ->toArray();
+
+            $daftarVespa->each(function ($vespa) use ($idVespaAktif) {
+                $vespa->pemesanan_aktif = in_array($vespa->id, $idVespaAktif);
+            });
+
             return $this->successResponse('Daftar vespa berhasil dimuat', VespaResource::collection($daftarVespa));
         } catch (\Exception $e) {
             Log::error('VespaController@index: ' . $e->getMessage());
