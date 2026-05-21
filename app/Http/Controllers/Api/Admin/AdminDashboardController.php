@@ -43,59 +43,5 @@ class AdminDashboardController extends Controller
         return response()->json($daftarPemesanan);
     }
 
-    /**
-     * Mendapatkan ringkasan lengkap dashboard.
-     * Mencakup: total pendapatan, jumlah pemesanan, layanan terpopuler, dan grafik pendapatan (7 bulan).
-     */
-    public function ringkasan()
-    {
-        // 1. Total pendapatan (hanya pemesanan selesai yang sudah lunas)
-        $totalPendapatan = Pemesanan::selesai()->sudahDibayar()->sum('total_harga');
 
-        // 2. Jumlah pemesanan
-        $totalPemesanan     = Pemesanan::count();
-        $pemesananSelesai   = Pemesanan::selesai()->count();
-        $pemesananMenunggu  = Pemesanan::menunggu()->count();
-
-        // 3. Top 5 layanan terpopuler
-        $layananTerpopuler = DB::table('layanan_pemesanan')
-            ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
-            ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-            ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
-            ->where('pemesanan.status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-            ->select('layanan.nama_layanan', DB::raw('count(*) as total'))
-            ->groupBy('layanan.id', 'layanan.nama_layanan')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->get();
-
-        // 4. Data grafik pendapatan (7 bulan terakhir)
-        $dataGrafik = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $tanggal    = Carbon::now()->subMonths($i);
-            $namaBulan  = $tanggal->format('F');
-            $nomorBulan = $tanggal->month;
-            $tahun      = $tanggal->year;
-
-            $pendapatanBulanan = Pemesanan::selesai()
-                ->sudahDibayar()
-                ->whereMonth('updated_at', $nomorBulan)
-                ->whereYear('updated_at', $tahun)
-                ->sum('total_harga');
-
-            $dataGrafik[] = [
-                'bulan'      => $namaBulan,
-                'pendapatan' => $pendapatanBulanan,
-            ];
-        }
-
-        return response()->json([
-            'total_pendapatan'    => $totalPendapatan,
-            'total_pemesanan'     => $totalPemesanan,
-            'pemesanan_selesai'   => $pemesananSelesai,
-            'pemesanan_menunggu'  => $pemesananMenunggu,
-            'layanan_terpopuler'  => $layananTerpopuler,
-            'data_grafik'         => $dataGrafik,
-        ]);
-    }
 }
