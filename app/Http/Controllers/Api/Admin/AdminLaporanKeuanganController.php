@@ -17,8 +17,8 @@ class AdminLaporanKeuanganController extends Controller
         $tahun = $request->query('year', date('Y'));
         $bulan = $request->query('month', null);
 
-        // Query dasar: hanya pemesanan selesai yang status pembayarannya lunas
-        $query = Pemesanan::selesai()->sudahDibayar();
+        // Query dasar: hanya pemesanan yang status pembayarannya lunas
+        $query = Pemesanan::sudahDibayar();
 
         // Filter berdasarkan tahun
         $query->whereYear('tanggal_pemesanan', $tahun);
@@ -47,7 +47,6 @@ class AdminLaporanKeuanganController extends Controller
                 DB::raw('COUNT(*) as total_pemesanan'),
                 DB::raw('SUM(COALESCE(total_harga, (SELECT SUM(harga_saat_pesan) FROM layanan_pemesanan WHERE layanan_pemesanan.id_pemesanan = pemesanan.id))) as pendapatan')
             )
-            ->where('status', Pemesanan::STATUS_SELESAI)
             ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
             ->whereYear('tanggal_pemesanan', $tahun)
             ->groupBy(DB::raw('MONTH(tanggal_pemesanan)'))
@@ -58,7 +57,6 @@ class AdminLaporanKeuanganController extends Controller
         $layananTerpopuler = DB::table('layanan_pemesanan')
             ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
             ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-            ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
             ->where('pemesanan.status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
             ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
             ->when($bulan, function ($q) use ($bulan, $tahun) {

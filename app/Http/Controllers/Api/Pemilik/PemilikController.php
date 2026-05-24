@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\SukuCadang;
 use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
+use App\Models\RiwayatStokSukuCadang;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,15 +24,13 @@ class PemilikController extends Controller
             $bulanIni = $hari->month;
             $tahunIni = $hari->year;
 
-            // Pendapatan hari ini (pemesanan selesai & lunas)
-            $pendapatanHariIni = Pemesanan::selesai()
-                ->sudahDibayar()
+            // Pendapatan hari ini (pemesanan yang sudah lunas)
+            $pendapatanHariIni = Pemesanan::sudahDibayar()
                 ->whereDate('updated_at', $hari)
                 ->sum('total_harga');
 
             // Pendapatan bulan ini
-            $pendapatanBulanIni = Pemesanan::selesai()
-                ->sudahDibayar()
+            $pendapatanBulanIni = Pemesanan::sudahDibayar()
                 ->whereMonth('updated_at', $bulanIni)
                 ->whereYear('updated_at', $tahunIni)
                 ->sum('total_harga');
@@ -105,8 +104,7 @@ class PemilikController extends Controller
 
             $current = $start->copy();
             while ($current <= $end) {
-                $pendapatan = Pemesanan::selesai()
-                    ->sudahDibayar()
+                $pendapatan = Pemesanan::sudahDibayar()
                     ->whereDate('tanggal_pemesanan', $current->toDateString())
                     ->sum('total_harga');
 
@@ -136,8 +134,7 @@ class PemilikController extends Controller
             $bulan      = $request->query('month');
             $tahun      = $request->query('year');
 
-            $query = Pemesanan::selesai()
-                ->sudahDibayar()
+            $query = Pemesanan::sudahDibayar()
                 ->with(['pengguna:id,nama', 'vespa:id,plat_nomor', 'layanan:id,nama_layanan'])
                 ->select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'total_harga', 'updated_at');
 
@@ -156,6 +153,41 @@ class PemilikController extends Controller
         } catch (\Exception $e) {
             Log::error('PemilikController@transaksi: ' . $e->getMessage());
             return $this->errorResponse('Gagal mengambil transaksi', 500, $e);
+        }
+    }
+
+    public function pengeluaranRestok(Request $request)
+    {
+        try {
+            $startDate = $request->query('start_date');
+            $endDate = $request->query('end_date');
+            $bulan = $request->query('month');
+            $tahun = $request->query('year');
+
+            $query = RiwayatStokSukuCadang::with([
+                'sukuCadang:id,nama_suku_cadang',
+                'admin:id,nama',
+            ]);
+
+            if ($startDate && $endDate) {
+                $query->whereBetween('created_at', [
+                    \Carbon\Carbon::parse($startDate)->startOfDay(),
+                    \Carbon\Carbon::parse($endDate)->endOfDay(),
+                ]);
+            } elseif ($bulan && $tahun) {
+                $query->whereMonth('created_at', $bulan)
+                    ->whereYear('created_at', $tahun);
+            } elseif ($tahun) {
+                $query->whereYear('created_at', $tahun);
+            }
+
+            $riwayatRestok = $query->orderBy('created_at', 'desc')->get();
+
+            return $this->successResponse('Pengeluaran restok berhasil dimuat', $riwayatRestok);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@pengeluaranRestok: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil pengeluaran restok', 500, $e);
         }
     }
 
@@ -269,21 +301,15 @@ class PemilikController extends Controller
             $bulan = $request->query('month', date('m'));
             $tahun = $request->query('year', date('Y'));
 
-            $pendapatan = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
-                ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
+            $pendapatan = Pemesanan::where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
                 ->whereYear('tanggal_pemesanan', $tahun)
                 ->whereMonth('tanggal_pemesanan', $bulan)
                 ->sum('total_harga');
 
-            // Hitung pengeluaran riil (modal suku cadang yang terjual)
-            $pengeluaran = DB::table('item_pemesanan')
-                ->join('pemesanan', 'item_pemesanan.id_pemesanan', '=', 'pemesanan.id')
-                ->join('suku_cadang', 'item_pemesanan.id_suku_cadang', '=', 'suku_cadang.id')
-                ->where('pemesanan.status', Pemesanan::STATUS_SELESAI)
-                ->where('pemesanan.status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-                ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
-                ->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
-                ->sum(DB::raw('suku_cadang.harga_beli * item_pemesanan.jumlah'));
+            // Pengeluaran kas dari restok suku cadang.
+            $pengeluaran = RiwayatStokSukuCadang::whereYear('created_at', $tahun)
+                ->whereMonth('created_at', $bulan)
+                ->sum('total_pengeluaran');
                 
             $keuntungan = $pendapatan - $pengeluaran;
 
@@ -353,7 +379,7 @@ class PemilikController extends Controller
                     DB::raw('MONTH(tanggal_pemesanan) as bulan'),
                     DB::raw('SUM(total_harga) as pendapatan')
                 )
-                ->where('status', Pemesanan::STATUS_SELESAI)
+                ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
                 ->whereYear('tanggal_pemesanan', $tahun)
                 ->groupBy('bulan')
                 ->orderBy('bulan')
@@ -382,4 +408,3 @@ class PemilikController extends Controller
         }
     }
 }
-

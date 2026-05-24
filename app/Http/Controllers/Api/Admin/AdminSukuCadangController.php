@@ -10,7 +10,9 @@ use App\Http\Requests\Admin\SimpanSukuCadangRequest;
 use App\Http\Requests\Admin\UpdateSukuCadangRequest;
 use App\Http\Requests\Admin\TambahStokRequest;
 use App\Http\Resources\SukuCadangResource;
+use App\Models\RiwayatStokSukuCadang;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AdminSukuCadangController extends Controller
@@ -151,12 +153,37 @@ class AdminSukuCadangController extends Controller
     public function tambahStok(TambahStokRequest $request, SukuCadang $sukuCadang)
     {
         try {
-            $sukuCadang->jumlah_stok += $request->validated('jumlah');
-            $sukuCadang->save();
+            $data = $request->validated();
+            $jumlah = (int) $data['jumlah'];
+            $hargaBeliSatuan = (int) $data['harga_beli_satuan'];
+
+            DB::transaction(function () use ($request, $sukuCadang, $data, $jumlah, $hargaBeliSatuan) {
+                $stokSebelum = (int) $sukuCadang->jumlah_stok;
+                $stokSesudah = $stokSebelum + $jumlah;
+
+                $sukuCadang->jumlah_stok = $stokSesudah;
+
+                if ($request->boolean('update_harga_beli')) {
+                    $sukuCadang->harga_beli = $hargaBeliSatuan;
+                }
+
+                $sukuCadang->save();
+
+                RiwayatStokSukuCadang::create([
+                    'id_suku_cadang' => $sukuCadang->id,
+                    'id_admin' => $request->user()?->id,
+                    'jumlah' => $jumlah,
+                    'harga_beli_satuan' => $hargaBeliSatuan,
+                    'total_pengeluaran' => $jumlah * $hargaBeliSatuan,
+                    'stok_sebelum' => $stokSebelum,
+                    'stok_sesudah' => $stokSesudah,
+                    'catatan' => $data['catatan'] ?? null,
+                ]);
+            });
 
             return $this->successResponse(
                 'Stok suku cadang berhasil ditambah',
-                new SukuCadangResource($sukuCadang)
+                new SukuCadangResource($sukuCadang->fresh('kategori'))
             );
 
         } catch (\Exception $e) {
@@ -211,4 +238,3 @@ class AdminSukuCadangController extends Controller
         }
     }
 }
-

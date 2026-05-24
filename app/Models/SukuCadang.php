@@ -43,6 +43,14 @@ class SukuCadang extends Model
     }
 
     /**
+     * Relasi: Riwayat penambahan stok suku cadang.
+     */
+    public function riwayatStok()
+    {
+        return $this->hasMany(RiwayatStokSukuCadang::class, 'id_suku_cadang');
+    }
+
+    /**
      * Query scope: Filter suku cadang yang masih tersedia (stok > 0).
      */
     public function scopeTersedia($query)
@@ -66,4 +74,3 @@ class SukuCadang extends Model
         return $this->belongsTo(KategoriSukuCadang::class, 'id_kategori', 'id');
     }
 }
-

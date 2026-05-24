@@ -126,6 +126,7 @@ Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(fu
     Route::get('/pemesanan-terbaru', [PemilikController::class, 'pemesananTerbaru']);
     Route::get('/tren-pendapatan', [PemilikController::class, 'trenPendapatan']);
     Route::get('/transaksi', [PemilikController::class, 'transaksi']);
+    Route::get('/pengeluaran-restok', [PemilikController::class, 'pengeluaranRestok']);
     Route::get('/layanan-terpopuler', [PemilikController::class, 'layananTerpopuler']);
     Route::get('/suku-cadang-terlaris', [PemilikController::class, 'sukuCadangTerlaris']);
     Route::get('/stok-menipis', [PemilikController::class, 'stokMenipis']);
@@ -133,4 +134,3 @@ Route::middleware(['auth:sanctum', 'role:pemilik'])->prefix('pemilik')->group(fu
     Route::get('/ringkasan', [PemilikController::class, 'ringkasan']);
     Route::get('/metrik-keuangan', [PemilikController::class, 'metrikKeuangan']);
 });
-

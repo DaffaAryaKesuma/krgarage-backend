@@ -23,6 +23,9 @@ class TambahStokRequest extends FormRequest
     {
         return [
             'jumlah' => 'required|integer|min:1',
+            'harga_beli_satuan' => 'required|integer|min:0',
+            'update_harga_beli' => 'sometimes|boolean',
+            'catatan' => 'nullable|string|max:1000',
         ];
     }
 }
