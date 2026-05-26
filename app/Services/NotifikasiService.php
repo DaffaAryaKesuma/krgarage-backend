@@ -76,6 +76,31 @@ class NotifikasiService
         );
 
         $this->kirimEmailStatusUpdate($pemesanan, $judul, $pesan);
+
+        // Kirim notifikasi ke semua admin bahwa servis telah diselesaikan
+        $this->notifikasiAdminServisSelesai($pemesanan);
+    }
+
+    /**
+     * Notifikasi ke semua admin saat servis selesai dikerjakan oleh mekanik/admin.
+     */
+    public function notifikasiAdminServisSelesai(Pemesanan $pemesanan): void
+    {
+        $daftarAdmin = User::admin()->get();
+        $pemesanan->loadMissing(['mekanik', 'pengguna']);
+        $namaMekanik = isset($pemesanan->mekanik->nama) ? ucwords(strtolower($pemesanan->mekanik->nama)) : 'Mekanik';
+        $namaPelanggan = isset($pemesanan->pengguna->nama) ? ucwords(strtolower($pemesanan->pengguna->nama)) : 'Pelanggan';
+
+        foreach ($daftarAdmin as $admin) {
+            $this->buatNotifikasi(
+                $admin->id,
+                Notifikasi::TIPE_PEMESANAN_SELESAI,
+                'Servis Selesai Dikerjakan',
+                "Servis pemesanan #{$pemesanan->kode_pemesanan} atas nama {$namaPelanggan} telah selesai dikerjakan oleh {$namaMekanik}. Siapkan invoice & pembayaran.",
+                $pemesanan->id,
+                false
+            );
+        }
     }
 
     /**
@@ -145,6 +170,7 @@ class NotifikasiService
         $namaPelanggan = $pelanggan->nama;
         // Opsional: Hilangkan kata "pelanggan" jika pengguna kebetulan menulis namanya "pelanggan daffa" dsb
         $namaPelanggan = trim(str_ireplace('pelanggan', '', $namaPelanggan));
+        $namaPelanggan = ucwords(strtolower($namaPelanggan));
 
         foreach ($daftarAdmin as $admin) {
             $this->buatNotifikasi(
@@ -216,7 +242,7 @@ class NotifikasiService
 
         $pemesanan->loadMissing('pengguna');
 
-        $namaPelanggan = $pemesanan->pengguna->nama ?? 'Pelanggan';
+        $namaPelanggan = isset($pemesanan->pengguna->nama) ? ucwords(strtolower($pemesanan->pengguna->nama)) : 'Pelanggan';
         $totalPembayaran = 'Rp' . number_format((float) ($pemesanan->total_harga ?? 0), 0, ',', '.');
         $judul = 'Pembayaran Diterima';
         $pesan = "Pemesanan {$pemesanan->kode_pemesanan} dari {$namaPelanggan} telah lunas ({$totalPembayaran}).";
@@ -332,7 +358,7 @@ class NotifikasiService
                 continue;
             }
 
-            $namaPelanggan = $pemesanan->pengguna->nama ?? 'Pelanggan';
+            $namaPelanggan = isset($pemesanan->pengguna->nama) ? ucwords(strtolower($pemesanan->pengguna->nama)) : 'Pelanggan';
             $totalPembayaran = 'Rp' . number_format((float) ($pemesanan->total_harga ?? 0), 0, ',', '.');
             $judul = 'Pembayaran Diterima';
             $pesan = "Pemesanan {$pemesanan->kode_pemesanan} dari {$namaPelanggan} telah lunas ({$totalPembayaran}).";

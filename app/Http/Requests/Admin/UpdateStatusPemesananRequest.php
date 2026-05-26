@@ -6,7 +6,7 @@ class UpdateStatusPemesananRequest extends FormRequest {
     public function authorize(): bool { return true; }
     public function rules(): array {
         return [
-            'status' => 'required|string|in:Menunggu,Dikonfirmasi,Dikerjakan,Selesai,batal',
+            'status' => 'required|string|in:Menunggu,Dikonfirmasi,Dikerjakan,Selesai,Batal,batal',
             'catatan_mekanik' => 'required_if:status,Selesai|string|max:1000',
         ];
     }
