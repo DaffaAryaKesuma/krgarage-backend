@@ -20,6 +20,11 @@ class Pemesanan extends Model
     public const STATUS_DIKERJAKAN = 'Dikerjakan';
     public const STATUS_SELESAI  = 'Selesai';
     public const STATUS_BATAL = 'Batal';
+    public const STATUS_PENDING = self::STATUS_MENUNGGU;
+    public const STATUS_CONFIRMED = self::STATUS_DIKONFIRMASI;
+    public const STATUS_IN_PROGRESS = self::STATUS_DIKERJAKAN;
+    public const STATUS_COMPLETED = self::STATUS_SELESAI;
+    public const STATUS_CANCELLED = self::STATUS_BATAL;
     public const PAYMENT_STATUS_UNPAID = 'Belum Lunas';
     public const PAYMENT_STATUS_PAID = 'Lunas';
 
@@ -174,4 +179,3 @@ class Pemesanan extends Model
         return $query->where('status_pembayaran', self::PAYMENT_STATUS_UNPAID);
     }
 }
-

@@ -37,6 +37,8 @@ class Notifikasi extends Model
     const TIPE_PEMESANAN_DIPERBARUI   = 'pemesanan_diperbarui';
     const TIPE_STOK_MENIPIS           = 'stok_menipis';
     const TIPE_PEMBAYARAN_DITERIMA    = 'pembayaran_diterima';
+    const TYPE_LOW_STOCK              = self::TIPE_STOK_MENIPIS;
+    const TYPE_PAYMENT_RECEIVED       = self::TIPE_PEMBAYARAN_DITERIMA;
 
     /**
      * Relasi: Notifikasi milik seorang pengguna.
@@ -70,4 +72,3 @@ class Notifikasi extends Model
         $this->update(['sudah_dibaca' => true]);
     }
 }
-

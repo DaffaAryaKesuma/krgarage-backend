@@ -17,11 +17,22 @@ return new class extends Migration
         });
 
         // Backfill / Update data lama: Salin nama_suku_cadang dari tabel suku_cadang ke kolom baru
-        DB::statement('
-            UPDATE item_pemesanan ip
-            JOIN suku_cadang sc ON ip.id_suku_cadang = sc.id
-            SET ip.nama_suku_cadang_saat_ini = sc.nama_suku_cadang
-        ');
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('
+                UPDATE item_pemesanan
+                SET nama_suku_cadang_saat_ini = (
+                    SELECT nama_suku_cadang
+                    FROM suku_cadang
+                    WHERE suku_cadang.id = item_pemesanan.id_suku_cadang
+                )
+            ');
+        } else {
+            DB::statement('
+                UPDATE item_pemesanan ip
+                JOIN suku_cadang sc ON ip.id_suku_cadang = sc.id
+                SET ip.nama_suku_cadang_saat_ini = sc.nama_suku_cadang
+            ');
+        }
     }
 
     /**

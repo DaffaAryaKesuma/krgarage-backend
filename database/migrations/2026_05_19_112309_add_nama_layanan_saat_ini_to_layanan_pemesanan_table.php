@@ -17,11 +17,22 @@ return new class extends Migration
         });
 
         // Backfill / Update data lama: Salin nama_layanan dari tabel layanan ke kolom baru
-        DB::statement('
-            UPDATE layanan_pemesanan lp
-            JOIN layanan l ON lp.id_layanan = l.id
-            SET lp.nama_layanan_saat_ini = l.nama_layanan
-        ');
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('
+                UPDATE layanan_pemesanan
+                SET nama_layanan_saat_ini = (
+                    SELECT nama_layanan
+                    FROM layanan
+                    WHERE layanan.id = layanan_pemesanan.id_layanan
+                )
+            ');
+        } else {
+            DB::statement('
+                UPDATE layanan_pemesanan lp
+                JOIN layanan l ON lp.id_layanan = l.id
+                SET lp.nama_layanan_saat_ini = l.nama_layanan
+            ');
+        }
     }
 
     /**

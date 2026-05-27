@@ -13,6 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // ── layanan.harga ────────────────────────────────────────────────
         if (Schema::hasTable('layanan') && Schema::hasColumn('layanan', 'harga')) {
             DB::statement('ALTER TABLE `layanan` MODIFY COLUMN `harga` BIGINT UNSIGNED NOT NULL DEFAULT 0');
@@ -49,6 +53,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         $konversi = [
             ['layanan',            'harga'],
             ['suku_cadang',        'harga_beli'],

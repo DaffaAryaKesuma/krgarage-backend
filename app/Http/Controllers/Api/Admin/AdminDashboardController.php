@@ -18,7 +18,9 @@ class AdminDashboardController extends Controller
 
         // Gunakan query builder dengan select untuk optimasi - hanya ambil jumlah, tidak perlu fetch semua data
         $statistik = [
-            'pemesanan_hari_ini' => Pemesanan::whereDate('tanggal_pemesanan', $hari)->count(),
+            'pemesanan_hari_ini' => Pemesanan::whereDate('tanggal_pemesanan', $hari)
+                ->where('status', '!=', Pemesanan::STATUS_BATAL)
+                ->count(),
             'sedang_dikerjakan'  => Pemesanan::dikerjakan()->count(),
             'selesai_hari_ini'   => Pemesanan::selesai()
                 ->whereDate('updated_at', $hari)
