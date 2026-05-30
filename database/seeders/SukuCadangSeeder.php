@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\SukuCadang;
 use App\Models\KategoriSukuCadang;
+use App\Models\SukuCadang;
+use Illuminate\Database\Seeder;
 
 class SukuCadangSeeder extends Seeder
 {
@@ -14,133 +14,84 @@ class SukuCadangSeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            'Oli', 'Busi', 'Kampas Rem', 'Kopling', 'Kabel', 'Filter', 'Bearing', 'Aki', 'Karburator'
+            'Baut & Mur',
+            'Bearing',
+            'Engkol',
+            'Kabel',
+            'Kampas Kopling',
+            'Kampas Rem',
+            'Karburator',
+            'Karet',
+            'Kopling',
+            'Kruk As',
+            'Oli',
+            'Paking',
+            'Pengapian',
+            'Piston',
+            'Seal',
+            'Transmisi',
         ];
 
         $kategoriMap = [];
-        foreach ($categories as $cat) {
-            $kategoriModel = KategoriSukuCadang::firstOrCreate(['nama' => $cat]);
-            $kategoriMap[$cat] = $kategoriModel->id;
+        foreach ($categories as $category) {
+            $kategoriMap[$category] = KategoriSukuCadang::firstOrCreate([
+                'nama' => $category,
+            ])->id;
         }
 
         $spareparts = [
-            [
-                'nama_suku_cadang' => 'Oli 2-Tak Castrol Power1',
-                'id_kategori' => $kategoriMap['Oli'],
-                'jumlah_stok' => 25,
-                'harga_beli' => 35000,
-                'harga_jual' => 50000,
-                'batas_minimal_stok' => 10,
-                'deskripsi' => 'Oli 2-tak premium untuk Vespa klasik 1 liter'
-            ],
-            [
-                'nama_suku_cadang' => 'Busi NGK BR8ES',
-                'id_kategori' => $kategoriMap['Busi'],
-                'jumlah_stok' => 20,
-                'harga_beli' => 18000,
-                'harga_jual' => 28000,
-                'batas_minimal_stok' => 10,
-                'deskripsi' => 'Busi NGK standar untuk Vespa 2-tak'
-            ],
-            [
-                'nama_suku_cadang' => 'Kampas Rem Depan',
-                'id_kategori' => $kategoriMap['Kampas Rem'],
-                'jumlah_stok' => 3,
-                'harga_beli' => 45000,
-                'harga_jual' => 70000,
-                'batas_minimal_stok' => 5,
-                'deskripsi' => 'Kampas rem depan Vespa klasik - Low Stock Alert!'
-            ],
-            [
-                'nama_suku_cadang' => 'Kampas Kopling Set',
-                'id_kategori' => $kategoriMap['Kopling'],
-                'jumlah_stok' => 8,
-                'harga_beli' => 85000,
-                'harga_jual' => 130000,
-                'batas_minimal_stok' => 5,
-                'deskripsi' => 'Set kampas kopling lengkap untuk transmisi manual'
-            ],
-            [
-                'nama_suku_cadang' => 'Kabel Gas Original',
-                'id_kategori' => $kategoriMap['Kabel'],
-                'jumlah_stok' => 2,
-                'harga_beli' => 35000,
-                'harga_jual' => 55000,
-                'batas_minimal_stok' => 5,
-                'deskripsi' => 'Kabel gas original Vespa - Low Stock Alert!'
-            ],
-            [
-                'nama_suku_cadang' => 'Filter Udara Karburator',
-                'id_kategori' => $kategoriMap['Filter'],
-                'jumlah_stok' => 18,
-                'harga_beli' => 25000,
-                'harga_jual' => 40000,
-                'batas_minimal_stok' => 8,
-                'deskripsi' => 'Filter udara busa untuk karburator Vespa'
-            ],
-            [
-                'nama_suku_cadang' => 'Kampas Rem Belakang',
-                'id_kategori' => $kategoriMap['Kampas Rem'],
-                'jumlah_stok' => 12,
-                'harga_beli' => 40000,
-                'harga_jual' => 65000,
-                'batas_minimal_stok' => 5,
-                'deskripsi' => 'Kampas rem belakang Vespa klasik'
-            ],
-            [
-                'nama_suku_cadang' => 'Bearing Roda Depan',
-                'id_kategori' => $kategoriMap['Bearing'],
-                'jumlah_stok' => 15,
-                'harga_beli' => 30000,
-                'harga_jual' => 50000,
-                'batas_minimal_stok' => 6,
-                'deskripsi' => 'Bearing roda depan original'
-            ],
-            [
-                'nama_suku_cadang' => 'Kabel Rem Depan',
-                'id_kategori' => $kategoriMap['Kabel'],
-                'jumlah_stok' => 6,
-                'harga_beli' => 28000,
-                'harga_jual' => 45000,
-                'batas_minimal_stok' => 4,
-                'deskripsi' => 'Kabel rem depan Vespa klasik'
-            ],
-            [
-                'nama_suku_cadang' => 'Aki 6V 4Ah',
-                'id_kategori' => $kategoriMap['Aki'],
-                'jumlah_stok' => 4,
-                'harga_beli' => 120000,
-                'harga_jual' => 175000,
-                'batas_minimal_stok' => 3,
-                'deskripsi' => 'Aki 6 volt untuk Vespa klasik kering maintenance-free'
-            ],
-            [
-                'nama_suku_cadang' => 'Karburator Dell\'Orto SI 20/20',
-                'id_kategori' => $kategoriMap['Karburator'],
-                'jumlah_stok' => 2,
-                'harga_beli' => 450000,
-                'harga_jual' => 650000,
-                'batas_minimal_stok' => 2,
-                'deskripsi' => 'Karburator Dell\'Orto original Vespa - Low Stock Alert!'
-            ],
-            [
-                'nama_suku_cadang' => 'Kabel Kopling',
-                'id_kategori' => $kategoriMap['Kabel'],
-                'jumlah_stok' => 8,
-                'harga_beli' => 32000,
-                'harga_jual' => 50000,
-                'batas_minimal_stok' => 5,
-                'deskripsi' => 'Kabel kopling Vespa manual'
-            ],
+            ['nama_suku_cadang' => 'Mur kopling', 'id_kategori' => $kategoriMap['Baut & Mur'], 'jumlah_stok' => 43, 'harga_beli' => 15000, 'harga_jual' => 20000, 'batas_minimal_stok' => 25, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Mur magnit', 'id_kategori' => $kategoriMap['Baut & Mur'], 'jumlah_stok' => 43, 'harga_beli' => 15000, 'harga_jual' => 20000, 'batas_minimal_stok' => 25, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Bearing kruk as besar', 'id_kategori' => $kategoriMap['Bearing'], 'jumlah_stok' => 9, 'harga_beli' => 250000, 'harga_jual' => 300000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Bearing kruk as kecil', 'id_kategori' => $kategoriMap['Bearing'], 'jumlah_stok' => 12, 'harga_beli' => 250000, 'harga_jual' => 300000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'As engkol px', 'id_kategori' => $kategoriMap['Engkol'], 'jumlah_stok' => 17, 'harga_beli' => 250000, 'harga_jual' => 300000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'As engkol sprint/super', 'id_kategori' => $kategoriMap['Engkol'], 'jumlah_stok' => 15, 'harga_beli' => 250000, 'harga_jual' => 300000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Gigi engkol px', 'id_kategori' => $kategoriMap['Engkol'], 'jumlah_stok' => 18, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Gigi engkol super', 'id_kategori' => $kategoriMap['Engkol'], 'jumlah_stok' => 17, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Gigi engkol XL', 'id_kategori' => $kategoriMap['Engkol'], 'jumlah_stok' => 20, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Sarung tali', 'id_kategori' => $kategoriMap['Kabel'], 'jumlah_stok' => 93, 'harga_beli' => 15000, 'harga_jual' => 20000, 'batas_minimal_stok' => 50, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Tali gas', 'id_kategori' => $kategoriMap['Kabel'], 'jumlah_stok' => 51, 'harga_beli' => 10000, 'harga_jual' => 15000, 'batas_minimal_stok' => 30, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Tali gigi', 'id_kategori' => $kategoriMap['Kabel'], 'jumlah_stok' => 51, 'harga_beli' => 10000, 'harga_jual' => 15000, 'batas_minimal_stok' => 30, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Tali kopling', 'id_kategori' => $kategoriMap['Kabel'], 'jumlah_stok' => 51, 'harga_beli' => 10000, 'harga_jual' => 15000, 'batas_minimal_stok' => 30, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Kampas kopling Excel', 'id_kategori' => $kategoriMap['Kampas Kopling'], 'jumlah_stok' => 19, 'harga_beli' => 80000, 'harga_jual' => 100000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Kampas kopling px', 'id_kategori' => $kategoriMap['Kampas Kopling'], 'jumlah_stok' => 17, 'harga_beli' => 75000, 'harga_jual' => 95000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Kampas rem belakang px', 'id_kategori' => $kategoriMap['Kampas Rem'], 'jumlah_stok' => 17, 'harga_beli' => 75000, 'harga_jual' => 95000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Kampas rem belakang super', 'id_kategori' => $kategoriMap['Kampas Rem'], 'jumlah_stok' => 17, 'harga_beli' => 75000, 'harga_jual' => 95000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Karburator 20/20', 'id_kategori' => $kategoriMap['Karburator'], 'jumlah_stok' => 9, 'harga_beli' => 700000, 'harga_jual' => 850000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Karburator 24/24', 'id_kategori' => $kategoriMap['Karburator'], 'jumlah_stok' => 9, 'harga_beli' => 785000, 'harga_jual' => 950000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Karburator 26/26', 'id_kategori' => $kategoriMap['Karburator'], 'jumlah_stok' => 6, 'harga_beli' => 815000, 'harga_jual' => 980000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Karet bantalan engkol', 'id_kategori' => $kategoriMap['Karet'], 'jumlah_stok' => 14, 'harga_beli' => 5000, 'harga_jual' => 10000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Karet hawa karburator', 'id_kategori' => $kategoriMap['Karet'], 'jumlah_stok' => 14, 'harga_beli' => 35000, 'harga_jual' => 45000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Gobangan Excel', 'id_kategori' => $kategoriMap['Kopling'], 'jumlah_stok' => 19, 'harga_beli' => 60000, 'harga_jual' => 75000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Gobangan px', 'id_kategori' => $kategoriMap['Kopling'], 'jumlah_stok' => 17, 'harga_beli' => 60000, 'harga_jual' => 75000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Tiang Sokar', 'id_kategori' => $kategoriMap['Kruk As'], 'jumlah_stok' => 5, 'harga_beli' => 180000, 'harga_jual' => 220000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Oli Motul 2T', 'id_kategori' => $kategoriMap['Oli'], 'jumlah_stok' => 4, 'harga_beli' => 150000, 'harga_jual' => 170000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Paking set Excel', 'id_kategori' => $kategoriMap['Paking'], 'jumlah_stok' => 19, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Paking set px', 'id_kategori' => $kategoriMap['Paking'], 'jumlah_stok' => 18, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Paking set super', 'id_kategori' => $kategoriMap['Paking'], 'jumlah_stok' => 17, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Platina px', 'id_kategori' => $kategoriMap['Pengapian'], 'jumlah_stok' => 18, 'harga_beli' => 80000, 'harga_jual' => 100000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Platina super', 'id_kategori' => $kategoriMap['Pengapian'], 'jumlah_stok' => 17, 'harga_beli' => 80000, 'harga_jual' => 100000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Pulser', 'id_kategori' => $kategoriMap['Pengapian'], 'jumlah_stok' => 15, 'harga_beli' => 130000, 'harga_jual' => 160000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Spul api CDI', 'id_kategori' => $kategoriMap['Pengapian'], 'jumlah_stok' => 18, 'harga_beli' => 150000, 'harga_jual' => 185000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Spul api platina', 'id_kategori' => $kategoriMap['Pengapian'], 'jumlah_stok' => 16, 'harga_beli' => 100000, 'harga_jual' => 125000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Piston', 'id_kategori' => $kategoriMap['Piston'], 'jumlah_stok' => 5, 'harga_beli' => 150000, 'harga_jual' => 185000, 'batas_minimal_stok' => 5, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Seal engkol', 'id_kategori' => $kategoriMap['Seal'], 'jumlah_stok' => 14, 'harga_beli' => 10000, 'harga_jual' => 15000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Seal kruk as besar', 'id_kategori' => $kategoriMap['Seal'], 'jumlah_stok' => 15, 'harga_beli' => 100000, 'harga_jual' => 125000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Seal kruk as kecil', 'id_kategori' => $kategoriMap['Seal'], 'jumlah_stok' => 15, 'harga_beli' => 100000, 'harga_jual' => 125000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Seal tuas kopling', 'id_kategori' => $kategoriMap['Seal'], 'jumlah_stok' => 14, 'harga_beli' => 5000, 'harga_jual' => 10000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Seal tutup kopling', 'id_kategori' => $kategoriMap['Seal'], 'jumlah_stok' => 14, 'harga_beli' => 8000, 'harga_jual' => 15000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Simpang 4 Excel', 'id_kategori' => $kategoriMap['Transmisi'], 'jumlah_stok' => 19, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Simpang 4 px', 'id_kategori' => $kategoriMap['Transmisi'], 'jumlah_stok' => 18, 'harga_beli' => 50000, 'harga_jual' => 65000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
+            ['nama_suku_cadang' => 'Simpang 4 super lama', 'id_kategori' => $kategoriMap['Transmisi'], 'jumlah_stok' => 17, 'harga_beli' => 60000, 'harga_jual' => 75000, 'batas_minimal_stok' => 10, 'deskripsi' => null],
         ];
 
         foreach ($spareparts as $sparepart) {
-            SukuCadang::create($sparepart);
+            SukuCadang::updateOrCreate(
+                ['nama_suku_cadang' => $sparepart['nama_suku_cadang']],
+                $sparepart
+            );
         }
 
-        $this->command->info('✅ SukuCadang seeder completed: 12 items created (Vespa 2-Tak)');
-        $this->command->info('⚠️  Low stock items: Kampas Rem Depan (3), Kabel Gas (2), Karburator (2)');
+        $this->command->info('SukuCadang seeder completed: ' . count($spareparts) . ' items synced.');
     }
 }
-
-
