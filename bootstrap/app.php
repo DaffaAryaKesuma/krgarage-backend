@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Avoid Route [login] errors when unauthenticated requests hit auth middleware.
+        $middleware->trustProxies(at: '*');
         $middleware->redirectGuestsTo('/');
 
         $middleware->alias([
