@@ -1,2 +1,8 @@
 *
 !.gitignore
+!services/
+!services/*.gif
+!services/*.jpg
+!services/*.jpeg
+!services/*.png
+!services/*.webp
