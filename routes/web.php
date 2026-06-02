@@ -8,16 +8,26 @@ Route::get('/', function () {
 });
 
 Route::get('/storage/{path}', function (string $path) {
-    $storageRoot = realpath(storage_path('app/public'));
-    $filePath = realpath(storage_path('app/public/'.$path));
+    $resolvePublicFile = function (string $root, string $relativePath): ?string {
+        $realRoot = realpath($root);
+        $filePath = realpath($root.'/'.$relativePath);
 
-    abort_unless(
-        $storageRoot &&
-        $filePath &&
-        str_starts_with($filePath, $storageRoot.DIRECTORY_SEPARATOR) &&
-        is_file($filePath),
-        404
-    );
+        if (
+            ! $realRoot ||
+            ! $filePath ||
+            ! str_starts_with($filePath, $realRoot.DIRECTORY_SEPARATOR) ||
+            ! is_file($filePath)
+        ) {
+            return null;
+        }
+
+        return $filePath;
+    };
+
+    $filePath = $resolvePublicFile(storage_path('app/public'), $path)
+        ?? $resolvePublicFile(public_path(), $path);
+
+    abort_unless($filePath, 404);
 
     return response()->file($filePath);
 })->where('path', '.*');
