@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Services\RealtimeEventService;
 
 class Pemesanan extends Model
 {
@@ -57,17 +56,6 @@ class Pemesanan extends Model
             }
         });
 
-        static::created(function (Pemesanan $pemesanan) {
-            RealtimeEventService::publishPemesananChanged($pemesanan, 'created');
-        });
-
-        static::updated(function (Pemesanan $pemesanan) {
-            RealtimeEventService::publishPemesananChanged($pemesanan, 'updated');
-        });
-
-        static::deleted(function (Pemesanan $pemesanan) {
-            RealtimeEventService::publishPemesananChanged($pemesanan, 'deleted');
-        });
     }
 
     /**

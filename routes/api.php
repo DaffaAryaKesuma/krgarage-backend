@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\RealtimeEventController;
 use App\Http\Controllers\Api\LayananController;
 use App\Http\Controllers\Api\Pelanggan\VespaController;
 use App\Http\Controllers\Api\Pelanggan\PemesananController;
@@ -42,7 +41,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Rute notifikasi untuk semua pengguna login (data tetap dipagari per user di controller)
-    Route::get('/realtime/events', [RealtimeEventController::class, 'stream']);
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     Route::post('/notifikasi/{id}/tandai-dibaca', [NotifikasiController::class, 'tandaiDibaca']);
     Route::post('/notifikasi/tandai-semua-dibaca', [NotifikasiController::class, 'tandaiSemuaDibaca']);
