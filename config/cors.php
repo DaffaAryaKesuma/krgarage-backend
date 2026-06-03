@@ -1,5 +1,22 @@
 <?php
 
+$defaultOrigins = [
+    env('FRONTEND_URL'),
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://krgarage-frontend.vercel.app',
+];
+
+$envOrigins = array_filter(array_map(
+    'trim',
+    explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
+));
+
+$allowedOrigins = array_values(array_unique(array_filter([
+    ...$defaultOrigins,
+    ...$envOrigins,
+])));
+
 return [
 
     /*
@@ -19,9 +36,15 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://krgarage-frontend.vercel.app'],
+    'allowed_origins' => $allowedOrigins,
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^http://localhost:\d+$#',
+        '#^http://127\.0\.0\.1:\d+$#',
+        '#^http://192\.168\.\d{1,3}\.\d{1,3}:\d+$#',
+        '#^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$#',
+        '#^http://172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}:\d+$#',
+    ],
 
     'allowed_headers' => ['*'],
 
