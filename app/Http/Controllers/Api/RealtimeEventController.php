@@ -11,13 +11,20 @@ class RealtimeEventController extends Controller
 {
     public function stream(Request $request): StreamedResponse
     {
-        $lastEventId = (int) $request->query('last_event_id', 0);
+        $lastEventId = $request->has('last_event_id')
+            ? (int) $request->query('last_event_id', 0)
+            : (int) RealtimeEvent::query()->max('id');
 
         return response()->stream(function () use ($lastEventId) {
             $lastId = $lastEventId;
             $startedAt = time();
 
-            echo ": connected\n\n";
+            echo "id: {$lastId}\n";
+            echo "event: krgarage-connected\n";
+            echo 'data: ' . json_encode([
+                'id' => $lastId,
+                'event' => 'connected',
+            ]) . "\n\n";
             $this->flushOutput();
 
             while (!connection_aborted() && (time() - $startedAt) < 30) {
