@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Events\PemesananBerubah;
 use App\Models\Pemesanan;
 use App\Models\User;
 use App\Services\NotifikasiService;
@@ -125,6 +126,7 @@ class AdminPemesananController extends Controller
 
             // Handle Notifikasi dan Stok Suku Cadang Service
             $this->handleStatusTransitionEffects($pemesanan, $statusLama, $statusBaru);
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'status_updated'));
 
             return $this->successResponse(
                 'Status pemesanan berhasil diperbarui!',
@@ -162,6 +164,7 @@ class AdminPemesananController extends Controller
             if ($statusPembayaranBaru === Pemesanan::PAYMENT_STATUS_PAID) {
                 $this->layananNotifikasi->notifikasiPemilikPembayaranDiterima($pemesanan);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'payment_updated'));
 
             return $this->successResponse(
                 'Status pembayaran berhasil diperbarui!',
@@ -189,6 +192,7 @@ class AdminPemesananController extends Controller
             if (!$hasil['success']) {
                 return $this->errorResponse($hasil['message'], 400);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
 
             return $this->successResponse($hasil['message'], [
                 'item_pemesanan' => $hasil['data']
@@ -211,6 +215,7 @@ class AdminPemesananController extends Controller
             if (!$hasil['success']) {
                 return $this->errorResponse($hasil['message'], $hasil['status_code'] ?? 400);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_deleted'));
 
             return $this->successResponse($hasil['message']);
             
@@ -277,6 +282,7 @@ class AdminPemesananController extends Controller
             if ($idMekanik) {
                 $this->layananNotifikasi->notifikasiMekanikDitugaskan($pemesanan, $mekanik);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'mechanic_assigned'));
 
             return $this->successResponse(
                 'Mekanik berhasil ditugaskan', 
@@ -321,4 +327,3 @@ class AdminPemesananController extends Controller
         }
     }
 }
-

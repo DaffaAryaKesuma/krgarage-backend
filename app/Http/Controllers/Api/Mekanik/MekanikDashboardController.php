@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Mekanik;
 
 use App\Http\Controllers\Controller;
+use App\Events\PemesananBerubah;
 use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
 use App\Services\NotifikasiService;
@@ -126,6 +127,7 @@ class MekanikDashboardController extends Controller
             if ($statusBaru === Pemesanan::STATUS_SELESAI) {
                 $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'status_updated'));
 
             return $this->successResponse(
                 'Status pemesanan berhasil diperbarui', 
@@ -158,6 +160,7 @@ class MekanikDashboardController extends Controller
             if (!$hasil['success']) {
                 return $this->errorResponse($hasil['message'], 400);
             }
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
 
             return $this->successResponse($hasil['message'], $hasil['data'], 201);
 
@@ -184,6 +187,7 @@ class MekanikDashboardController extends Controller
             $kodeStatus = $hasil['status_code'] ?? 200;
 
             if (!$hasil['success']) return $this->errorResponse($hasil['message'], $kodeStatus);
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_deleted'));
 
             return $this->successResponse($hasil['message']);
 
@@ -262,4 +266,3 @@ class MekanikDashboardController extends Controller
         return null;
     }
 }
-

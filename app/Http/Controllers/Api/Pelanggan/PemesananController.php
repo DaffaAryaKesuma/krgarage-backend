@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Pelanggan;
 
 use App\Http\Controllers\Controller;
+use App\Events\PemesananBerubah;
 use App\Models\Pemesanan;
 use App\Models\Notifikasi;
 use App\Models\Layanan;
@@ -157,6 +158,7 @@ class PemesananController extends Controller
             $pemesanan->update(['total_harga' => $totalHarga]);
 
             $this->layananNotifikasi->notifikasiAdminPemesananBaru($pemesanan, $request->user());
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'created'));
 
             try {
                 $pemesanan->load('pengguna', 'vespa', 'layanan');
@@ -241,6 +243,7 @@ class PemesananController extends Controller
             }
 
             $pemesanan->update(['status' => Pemesanan::STATUS_BATAL]);
+            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'cancelled'));
 
             $daftarAdmin = User::admin()->get();
             foreach ($daftarAdmin as $admin) {
@@ -262,6 +265,5 @@ class PemesananController extends Controller
         }
     }
 }
-
 
 
