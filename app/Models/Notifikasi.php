@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\RealtimeEventService;
 
 class Notifikasi extends Model
 {
@@ -26,6 +27,17 @@ class Notifikasi extends Model
     protected $casts = [
         'sudah_dibaca' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Notifikasi $notifikasi) {
+            RealtimeEventService::publishNotifikasiChanged($notifikasi, 'created');
+        });
+
+        static::updated(function (Notifikasi $notifikasi) {
+            RealtimeEventService::publishNotifikasiChanged($notifikasi, 'updated');
+        });
+    }
 
     // Konstanta tipe notifikasi
     const TIPE_PEMESANAN_DIKONFIRMASI = 'pemesanan_dikonfirmasi';

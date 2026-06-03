@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\RealtimeEventService;
 
 class ItemPemesanan extends Model
 {
@@ -18,6 +19,21 @@ class ItemPemesanan extends Model
         'jumlah',
         'harga_saat_ini',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (ItemPemesanan $itemPemesanan) {
+            RealtimeEventService::publishItemPemesananChanged($itemPemesanan, 'created');
+        });
+
+        static::updated(function (ItemPemesanan $itemPemesanan) {
+            RealtimeEventService::publishItemPemesananChanged($itemPemesanan, 'updated');
+        });
+
+        static::deleted(function (ItemPemesanan $itemPemesanan) {
+            RealtimeEventService::publishItemPemesananChanged($itemPemesanan, 'deleted');
+        });
+    }
 
     /**
      * Relasi: Item pemesanan milik sebuah pemesanan
