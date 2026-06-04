@@ -23,7 +23,7 @@ class AdminDashboardController extends Controller
                 ->count(),
             'sedang_dikerjakan'  => Pemesanan::dikerjakan()->count(),
             'selesai_hari_ini'   => Pemesanan::selesai()
-                ->whereDate('updated_at', $hari)
+                ->whereDate('completed_at', $hari)
                 ->count(),
         ];
 
@@ -36,7 +36,7 @@ class AdminDashboardController extends Controller
     public function pemesananTerbaru()
     {
         // Gunakan select() untuk mengambil kolom tertentu saja - query lebih cepat
-        $daftarPemesanan = Pemesanan::select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'id_mekanik', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'created_at')
+        $daftarPemesanan = Pemesanan::select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'id_mekanik', 'tanggal_pemesanan', 'completed_at', 'paid_at', 'status', 'status_pembayaran', 'created_at')
             ->with(['pengguna:id,nama', 'vespa:id,model', 'mekanik:id,nama'])
             ->orderBy('created_at', 'desc')
             ->limit(5)

@@ -26,18 +26,18 @@ class PemilikController extends Controller
 
             // Pendapatan hari ini (pemesanan yang sudah lunas)
             $pendapatanHariIni = Pemesanan::sudahDibayar()
-                ->whereDate('updated_at', $hari)
+                ->whereDate('paid_at', $hari)
                 ->sum('total_harga');
 
             // Pendapatan bulan ini
             $pendapatanBulanIni = Pemesanan::sudahDibayar()
-                ->whereMonth('updated_at', $bulanIni)
-                ->whereYear('updated_at', $tahunIni)
+                ->whereMonth('paid_at', $bulanIni)
+                ->whereYear('paid_at', $tahunIni)
                 ->sum('total_harga');
 
             // Unit servis selesai hari ini
             $unitHariIni = Pemesanan::selesai()
-                ->whereDate('updated_at', $hari)
+                ->whereDate('completed_at', $hari)
                 ->count();
 
             // Nilai total stok suku cadang
@@ -61,7 +61,7 @@ class PemilikController extends Controller
     {
         try {
             $daftarPemesanan = Pemesanan::with(['pengguna:id,nama', 'layanan:id,nama_layanan'])
-                ->select('id', 'kode_pemesanan', 'id_pengguna', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'total_harga')
+                ->select('id', 'kode_pemesanan', 'id_pengguna', 'tanggal_pemesanan', 'completed_at', 'paid_at', 'status', 'status_pembayaran', 'total_harga')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get()
@@ -70,6 +70,8 @@ class PemilikController extends Controller
                         'id'               => $p->id,
                         'kode_pemesanan'   => $p->kode_pemesanan,
                         'tanggal_pemesanan'=> $p->tanggal_pemesanan,
+                        'completed_at'      => $p->completed_at,
+                        'paid_at'           => $p->paid_at,
                         'nama_pelanggan'   => $p->pengguna->nama ?? '-',
                         'nama_layanan'     => $p->layanan->pluck('nama_layanan')->join(', ') ?: '-',
                         'total_harga'      => $p->total_harga,
@@ -105,7 +107,7 @@ class PemilikController extends Controller
             $current = $start->copy();
             while ($current <= $end) {
                 $pendapatan = Pemesanan::sudahDibayar()
-                    ->whereDate('tanggal_pemesanan', $current->toDateString())
+                    ->whereDate('paid_at', $current->toDateString())
                     ->sum('total_harga');
 
                 $labels[] = $current->format('d M');
@@ -136,17 +138,20 @@ class PemilikController extends Controller
 
             $query = Pemesanan::sudahDibayar()
                 ->with(['pengguna:id,nama', 'vespa:id,plat_nomor', 'layanan:id,nama_layanan'])
-                ->select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'tanggal_pemesanan', 'status', 'status_pembayaran', 'total_harga', 'updated_at');
+                ->select('id', 'kode_pemesanan', 'id_pengguna', 'id_vespa', 'tanggal_pemesanan', 'completed_at', 'paid_at', 'status', 'status_pembayaran', 'total_harga', 'updated_at');
 
             if ($startDate && $endDate) {
-                $query->whereBetween('tanggal_pemesanan', [$startDate, $endDate]);
+                $query->whereBetween('paid_at', [
+                    \Carbon\Carbon::parse($startDate)->startOfDay(),
+                    \Carbon\Carbon::parse($endDate)->endOfDay(),
+                ]);
             } elseif ($bulan && $tahun) {
-                $query->whereMonth('tanggal_pemesanan', $bulan)->whereYear('tanggal_pemesanan', $tahun);
+                $query->whereMonth('paid_at', $bulan)->whereYear('paid_at', $tahun);
             } elseif ($tahun) {
-                $query->whereYear('tanggal_pemesanan', $tahun);
+                $query->whereYear('paid_at', $tahun);
             }
 
-            $transaksi = $query->orderBy('tanggal_pemesanan', 'desc')->get();
+            $transaksi = $query->orderBy('paid_at', 'desc')->get();
 
             return $this->successResponse('Transaksi berhasil dimuat', $transaksi);
 
@@ -302,8 +307,8 @@ class PemilikController extends Controller
             $tahun = $request->query('year', date('Y'));
 
             $pendapatan = Pemesanan::where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-                ->whereYear('tanggal_pemesanan', $tahun)
-                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->whereYear('paid_at', $tahun)
+                ->whereMonth('paid_at', $bulan)
                 ->sum('total_harga');
 
             // Pengeluaran kas dari restok suku cadang.
@@ -314,16 +319,16 @@ class PemilikController extends Controller
             $keuntungan = $pendapatan - $pengeluaran;
 
             $totalPemesananSelesai = Pemesanan::where('status', Pemesanan::STATUS_SELESAI)
-                ->whereYear('tanggal_pemesanan', $tahun)
-                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->whereYear('completed_at', $tahun)
+                ->whereMonth('completed_at', $bulan)
                 ->count();
                 
 
             $mekanikTerbaik = Pemesanan::select('id_mekanik', DB::raw('count(*) as total_pekerjaan'))
                 ->with('mekanik:id,nama')
                 ->where('status', Pemesanan::STATUS_SELESAI)
-                ->whereYear('tanggal_pemesanan', $tahun)
-                ->whereMonth('tanggal_pemesanan', $bulan)
+                ->whereYear('completed_at', $tahun)
+                ->whereMonth('completed_at', $bulan)
                 ->whereNotNull('id_mekanik')
                 ->groupBy('id_mekanik')
                 ->orderByDesc('total_pekerjaan')
@@ -376,11 +381,11 @@ class PemilikController extends Controller
             $tahun = $request->query('year', date('Y'));
             
             $pendapatanBulanan = Pemesanan::select(
-                    DB::raw('MONTH(tanggal_pemesanan) as bulan'),
+                    DB::raw('MONTH(paid_at) as bulan'),
                     DB::raw('SUM(total_harga) as pendapatan')
                 )
                 ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-                ->whereYear('tanggal_pemesanan', $tahun)
+                ->whereYear('paid_at', $tahun)
                 ->groupBy('bulan')
                 ->orderBy('bulan')
                 ->get();

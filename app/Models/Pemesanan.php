@@ -36,10 +36,17 @@ class Pemesanan extends Model
         'tanggal_pemesanan',
         'jam_pemesanan',
         'status',
+        'completed_at',
         'status_pembayaran',
+        'paid_at',
         'catatan_pelanggan',
         'catatan_mekanik',
         'total_harga',
+    ];
+
+    protected $casts = [
+        'completed_at' => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     protected static function boot()

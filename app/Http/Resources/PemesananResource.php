@@ -10,6 +10,8 @@ class PemesananResource extends JsonResource {
         // Pastikan field status_pembayaran selalu ada
         $data['status_pembayaran'] = $this->status_pembayaran ?? null;
         $data['status'] = $this->status ?? null;
+        $data['completed_at'] = $this->completed_at;
+        $data['paid_at'] = $this->paid_at;
         
         return $data;
     }

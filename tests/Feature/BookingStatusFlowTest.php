@@ -48,7 +48,10 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonPath('data.catatan_mekanik', 'Pekerjaan selesai, keluhan utama sudah ditangani.');
 
         $sukuCadang->refresh();
+        $pemesanan->refresh();
         $this->assertSame($stokAwal - 1, $sukuCadang->jumlah_stok);
+        $this->assertNotNull($pemesanan->completed_at);
+        $this->assertNull($pemesanan->paid_at);
 
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_COMPLETED,
@@ -204,6 +207,9 @@ class BookingStatusFlowTest extends TestCase
             'tipe' => Notification::TYPE_PAYMENT_RECEIVED,
             'id_pemesanan' => $pemesanan->id,
         ]);
+
+        $pemesanan->refresh();
+        $this->assertNotNull($pemesanan->paid_at);
     }
 
     public function test_owner_notification_index_backfills_missed_paid_booking_notifications(): void

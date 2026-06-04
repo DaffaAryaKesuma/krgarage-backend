@@ -114,8 +114,13 @@ class AdminPemesananController extends Controller
 
             $pemesanan->status = $statusBaru;
 
-            if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->status_pembayaran !== Pemesanan::PAYMENT_STATUS_PAID) {
-                $pemesanan->status_pembayaran = Pemesanan::PAYMENT_STATUS_UNPAID;
+            if ($statusBaru === Pemesanan::STATUS_SELESAI) {
+                $pemesanan->completed_at ??= now();
+
+                if ($pemesanan->status_pembayaran !== Pemesanan::PAYMENT_STATUS_PAID) {
+                    $pemesanan->status_pembayaran = Pemesanan::PAYMENT_STATUS_UNPAID;
+                    $pemesanan->paid_at = null;
+                }
             }
 
             if ($request->has('catatan_mekanik')) {
@@ -159,6 +164,9 @@ class AdminPemesananController extends Controller
             }
 
             $pemesanan->status_pembayaran = $statusPembayaranBaru;
+            $pemesanan->paid_at = $statusPembayaranBaru === Pemesanan::PAYMENT_STATUS_PAID
+                ? now()
+                : null;
             $pemesanan->save();
 
             if ($statusPembayaranBaru === Pemesanan::PAYMENT_STATUS_PAID) {

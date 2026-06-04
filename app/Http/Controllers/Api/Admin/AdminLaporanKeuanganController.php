@@ -20,17 +20,16 @@ class AdminLaporanKeuanganController extends Controller
         // Query dasar: hanya pemesanan yang status pembayarannya lunas
         $query = Pemesanan::sudahDibayar();
 
-        // Filter berdasarkan tahun
-        $query->whereYear('tanggal_pemesanan', $tahun);
+        // Filter berdasarkan waktu pembayaran lunas
+        $query->whereYear('paid_at', $tahun);
 
-        // Filter berdasarkan bulan jika ada
         if ($bulan) {
-            $query->whereMonth('tanggal_pemesanan', $bulan);
+            $query->whereMonth('paid_at', $bulan);
         }
 
         // Ambil data pemesanan beserta relasinya
         $daftarPemesanan = $query->with(['layanan', 'pengguna', 'vespa', 'itemPemesanan.sukuCadang'])
-            ->orderBy('tanggal_pemesanan', 'DESC')
+            ->orderBy('paid_at', 'DESC')
             ->get();
 
         // Hitung total pendapatan
@@ -43,13 +42,13 @@ class AdminLaporanKeuanganController extends Controller
         // Agregasi data per bulan untuk grafik
         $dataBulanan = DB::table('pemesanan')
             ->select(
-                DB::raw('MONTH(tanggal_pemesanan) as bulan'),
+                DB::raw('MONTH(paid_at) as bulan'),
                 DB::raw('COUNT(*) as total_pemesanan'),
                 DB::raw('SUM(COALESCE(total_harga, (SELECT SUM(harga_saat_pesan) FROM layanan_pemesanan WHERE layanan_pemesanan.id_pemesanan = pemesanan.id))) as pendapatan')
             )
             ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-            ->whereYear('tanggal_pemesanan', $tahun)
-            ->groupBy(DB::raw('MONTH(tanggal_pemesanan)'))
+            ->whereYear('paid_at', $tahun)
+            ->groupBy(DB::raw('MONTH(paid_at)'))
             ->orderBy('bulan')
             ->get();
 
@@ -58,10 +57,10 @@ class AdminLaporanKeuanganController extends Controller
             ->join('layanan', 'layanan_pemesanan.id_layanan', '=', 'layanan.id')
             ->join('pemesanan', 'layanan_pemesanan.id_pemesanan', '=', 'pemesanan.id')
             ->where('pemesanan.status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
-            ->whereYear('pemesanan.tanggal_pemesanan', $tahun)
+            ->whereYear('pemesanan.paid_at', $tahun)
             ->when($bulan, function ($q) use ($bulan, $tahun) {
-                $q->whereMonth('pemesanan.tanggal_pemesanan', $bulan)
-                  ->whereYear('pemesanan.tanggal_pemesanan', $tahun);
+                $q->whereMonth('pemesanan.paid_at', $bulan)
+                  ->whereYear('pemesanan.paid_at', $tahun);
             })
             ->select(
                 'layanan.nama_layanan',
