@@ -45,6 +45,11 @@ class EmailUpdateStatusPemesanan extends Mailable
     {
         return new Content(
             markdown: "emails.booking.status_update",
+            with: [
+                'pemesanan' => $this->pemesanan,
+                'judulEmail' => $this->judulEmail,
+                'pesanEmail' => $this->pesanEmail,
+            ],
         );
     }
 

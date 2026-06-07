@@ -41,6 +41,9 @@ class EmailKonfirmasiPemesanan extends Mailable
     {
         return new Content(
             markdown: 'emails.booking.confirmed',
+            with: [
+                'pemesanan' => $this->pemesanan,
+            ],
         );
     }
 
@@ -54,4 +57,3 @@ class EmailKonfirmasiPemesanan extends Mailable
         return [];
     }
 }
-

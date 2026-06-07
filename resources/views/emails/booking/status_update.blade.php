@@ -11,7 +11,7 @@ Berikut adalah rincian pesanan Anda saat ini:
 **Kode Pesanan:** {{ $pemesanan->kode_pemesanan }}  
 **Status Saat Ini:** **{{ $pemesanan->status }}**  
 **Tanggal Servis:** {{ \Carbon\Carbon::parse($pemesanan->tanggal_pemesanan)->locale("id")->translatedFormat("l, d F Y") }}  
-**Waktu Servis:** {{ \Carbon\Carbon::parse($pemesanan->waktu_pemesanan)->format("H:i") }} WIB  
+**Waktu Servis:** {{ \Carbon\Carbon::parse($pemesanan->jam_pemesanan)->format("H:i") }} WIB  
 **Kendaraan:** {{ $pemesanan->vespa->model ?? "Vespa Anda" }} ({{ $pemesanan->vespa->plat_nomor ?? "-" }})  
 
 @if($pemesanan->catatan_pelanggan)
