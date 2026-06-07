@@ -4,11 +4,19 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\KategoriSukuCadang;
+use App\Services\LogAktivitasAdminService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class AdminKategoriSukuCadangController extends Controller
 {
+    protected $logAktivitasAdmin;
+
+    public function __construct(LogAktivitasAdminService $logAktivitasAdmin)
+    {
+        $this->logAktivitasAdmin = $logAktivitasAdmin;
+    }
+
     public function index()
     {
         $categories = KategoriSukuCadang::query()
@@ -39,6 +47,17 @@ class AdminKategoriSukuCadangController extends Controller
         $category = KategoriSukuCadang::create([
             'nama' => trim($request->nama),
         ]);
+        $this->logAktivitasAdmin->catat(
+            $request->user(),
+            'tambah',
+            'inventaris',
+            'kategori_suku_cadang',
+            $category->id,
+            $category->nama,
+            "Menambahkan kategori suku cadang {$category->nama}",
+            null,
+            $category->only(['nama']),
+        );
 
         return response()->json([
             'success' => true,
@@ -47,4 +66,3 @@ class AdminKategoriSukuCadangController extends Controller
         ], 201);
     }
 }
-

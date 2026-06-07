@@ -21,6 +21,7 @@ class RiwayatStokSukuCadang extends Model
         'stok_sebelum',
         'stok_sesudah',
         'catatan',
+        'foto_struk',
     ];
 
     public function sukuCadang(): BelongsTo

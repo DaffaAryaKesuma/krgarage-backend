@@ -8,6 +8,7 @@ use App\Models\SukuCadang;
 use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
 use App\Models\RiwayatStokSukuCadang;
+use App\Models\LogAktivitasAdmin;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -193,6 +194,51 @@ class PemilikController extends Controller
         } catch (\Exception $e) {
             Log::error('PemilikController@pengeluaranRestok: ' . $e->getMessage());
             return $this->errorResponse('Gagal mengambil pengeluaran restok', 500, $e);
+        }
+    }
+
+    public function logAktivitasAdmin(Request $request)
+    {
+        try {
+            $startDate = $request->query('start_date');
+            $endDate = $request->query('end_date');
+            $bulan = $request->query('month');
+            $tahun = $request->query('year');
+            $modul = $request->query('modul');
+            $rolePengguna = $request->query('role_pengguna');
+
+            $query = LogAktivitasAdmin::with([
+                'admin:id,nama,role',
+                'aktor:id,nama,role',
+            ]);
+
+            if ($modul && $modul !== 'semua') {
+                $query->where('modul', $modul);
+            }
+
+            if ($rolePengguna && $rolePengguna !== 'semua') {
+                $query->where('role_pengguna', $rolePengguna);
+            }
+
+            if ($startDate && $endDate) {
+                $query->whereBetween('created_at', [
+                    \Carbon\Carbon::parse($startDate)->startOfDay(),
+                    \Carbon\Carbon::parse($endDate)->endOfDay(),
+                ]);
+            } elseif ($bulan && $tahun) {
+                $query->whereMonth('created_at', $bulan)
+                    ->whereYear('created_at', $tahun);
+            } elseif ($tahun) {
+                $query->whereYear('created_at', $tahun);
+            }
+
+            $logs = $query->orderBy('created_at', 'desc')->limit(200)->get();
+
+            return $this->successResponse('Log aktivitas berhasil dimuat', $logs);
+
+        } catch (\Exception $e) {
+            Log::error('PemilikController@logAktivitasAdmin: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengambil log aktivitas', 500, $e);
         }
     }
 

@@ -8,26 +8,34 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+// Model ini mewakili tabel pemesanan, yaitu transaksi servis utama di sistem.
 class Pemesanan extends Model
 {
+    // HasFactory dipakai Laravel untuk membuat data dummy saat testing/seeding.
     use HasFactory;
 
+    // Nama tabel dibuat eksplisit karena tabelnya bukan bentuk plural Laravel default.
     protected $table = 'pemesanan';
 
-    // Konstanta status yang sudah dibakukan
+    // Konstanta ini mencegah penulisan status yang typo di controller/service.
     public const STATUS_MENUNGGU    = 'Menunggu';
     public const STATUS_DIKONFIRMASI  = 'Dikonfirmasi';
     public const STATUS_DIKERJAKAN = 'Dikerjakan';
     public const STATUS_SELESAI  = 'Selesai';
     public const STATUS_BATAL = 'Batal';
+
+    // Alias bahasa Inggris dipakai agar kode lama/baru tetap bisa memakai arti yang sama.
     public const STATUS_PENDING = self::STATUS_MENUNGGU;
     public const STATUS_CONFIRMED = self::STATUS_DIKONFIRMASI;
     public const STATUS_IN_PROGRESS = self::STATUS_DIKERJAKAN;
     public const STATUS_COMPLETED = self::STATUS_SELESAI;
     public const STATUS_CANCELLED = self::STATUS_BATAL;
+
+    // Konstanta status pembayaran dipakai untuk membedakan lunas dan belum lunas.
     public const PAYMENT_STATUS_UNPAID = 'Belum Lunas';
     public const PAYMENT_STATUS_PAID = 'Lunas';
 
+    // Fillable berisi kolom yang boleh diisi lewat create() atau update().
     protected $fillable = [
         'kode_pemesanan',
         'id_pengguna',
@@ -44,20 +52,25 @@ class Pemesanan extends Model
         'total_harga',
     ];
 
+    // Casting membuat completed_at dan paid_at otomatis menjadi object tanggal Carbon.
     protected $casts = [
         'completed_at' => 'datetime',
         'paid_at' => 'datetime',
     ];
 
+    // boot() berjalan saat model aktif, misalnya sebelum data pemesanan baru disimpan.
     protected static function boot()
     {
         parent::boot();
 
+        // creating dijalankan hanya saat INSERT data baru, bukan saat update.
         static::creating(function ($pemesanan) {
+            // Jika kode belum dikirim dari controller, sistem membuat kode otomatis.
             if (!$pemesanan->kode_pemesanan) {
                 $pemesanan->kode_pemesanan = 'BKG-' . strtoupper(substr(uniqid(), -8));
             }
 
+            // Pemesanan baru otomatis dianggap belum lunas sampai admin menandai lunas.
             if (!$pemesanan->status_pembayaran) {
                 $pemesanan->status_pembayaran = self::PAYMENT_STATUS_UNPAID;
             }
@@ -66,7 +79,7 @@ class Pemesanan extends Model
     }
 
     /**
-     * Relasi: Pemesanan milik seorang pengguna (customer)
+     * Relasi: Pemesanan milik seorang pengguna sebagai pelanggan.
      */
     public function pengguna(): BelongsTo
     {
@@ -90,10 +103,11 @@ class Pemesanan extends Model
     }
 
     /**
-     * Relasi: Pemesanan memiliki banyak layanan (many-to-many)
+     * Relasi: Pemesanan memiliki banyak layanan melalui tabel layanan_pemesanan.
      */
     public function layanan(): BelongsToMany
     {
+        // harga_saat_pesan disimpan di pivot agar harga lama tidak berubah saat master layanan berubah.
         return $this->belongsToMany(Layanan::class, 'layanan_pemesanan', 'id_pemesanan', 'id_layanan')
                     ->withPivot('harga_saat_pesan')
                     ->withTimestamps();
@@ -108,16 +122,18 @@ class Pemesanan extends Model
     }
 
     /**
-     * Hitung ulang total harga (layanan + suku cadang)
+     * Hitung ulang total harga dari layanan dan suku cadang.
      */
     public function recalculateTotalHarga(): void
     {
+        // Ambil harga snapshot di pivot; jika kosong, pakai harga terbaru dari master layanan.
         $totalLayanan = $this->layanan()
             ->get()
             ->sum(function ($layanan) {
                 return (float) ($layanan->pivot->harga_saat_pesan ?? $layanan->harga);
             });
 
+        // Total suku cadang dihitung dari harga saat dipakai dikali jumlah.
         $totalSukuCadang = $this->itemPemesanan()
             ->whereNotNull('id_suku_cadang')
             ->get()
@@ -125,6 +141,7 @@ class Pemesanan extends Model
                 return $item->harga_saat_ini * $item->jumlah;
             });
 
+        // Simpan hasil hitung ke kolom total_harga agar mudah ditampilkan di laporan.
         $this->total_harga = $totalLayanan + $totalSukuCadang;
         $this->save();
     }
@@ -134,6 +151,7 @@ class Pemesanan extends Model
      */
     public function sukuCadang(): BelongsToMany
     {
+        // jumlah dan harga_saat_ini berada di tabel pivot item_pemesanan.
         return $this->belongsToMany(SukuCadang::class, 'item_pemesanan', 'id_pemesanan', 'id_suku_cadang')
                     ->withPivot('jumlah', 'harga_saat_ini')
                     ->withTimestamps();

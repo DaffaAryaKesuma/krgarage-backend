@@ -8,6 +8,7 @@ use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
 use App\Services\NotifikasiService;
 use App\Services\PemesananSukuCadangService;
+use App\Services\LogAktivitasAdminService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Requests\Mekanik\UpdateStatusPemesananMekanikRequest;
 use App\Http\Requests\Mekanik\TambahSukuCadangRequest;
@@ -22,11 +23,17 @@ class MekanikDashboardController extends Controller
 
     protected $layananNotifikasi;
     protected $layananSukuCadang;
+    protected $logAktivitas;
 
-    public function __construct(NotifikasiService $layananNotifikasi, PemesananSukuCadangService $layananSukuCadang)
+    public function __construct(
+        NotifikasiService $layananNotifikasi,
+        PemesananSukuCadangService $layananSukuCadang,
+        LogAktivitasAdminService $logAktivitas
+    )
     {
         $this->layananNotifikasi = $layananNotifikasi;
         $this->layananSukuCadang = $layananSukuCadang;
+        $this->logAktivitas = $logAktivitas;
     }
 
     /**
@@ -101,6 +108,8 @@ class MekanikDashboardController extends Controller
             $statusLama = $pemesanan->status;
             $statusBaru = $data['status'];
             $catatanMekanik = trim($data['catatan_mekanik']);
+            $catatanMekanikLama = $pemesanan->catatan_mekanik;
+            $completedAtLama = $pemesanan->completed_at;
 
             if ($catatanMekanik === '') {
                 return $this->errorResponse('Data tidak valid: Catatan mekanik wajib diisi.', 422);
@@ -128,6 +137,26 @@ class MekanikDashboardController extends Controller
 
             $pemesanan->catatan_mekanik = $catatanMekanik;
             $pemesanan->save();
+
+            $this->logAktivitas->catat(
+                $request->user(),
+                'edit',
+                'pemesanan',
+                'pemesanan',
+                $pemesanan->id,
+                $pemesanan->kode_pemesanan,
+                "Mekanik menyelesaikan servis pemesanan #{$pemesanan->kode_pemesanan}.",
+                [
+                    'status' => $statusLama,
+                    'catatan_mekanik' => $catatanMekanikLama,
+                    'completed_at' => $completedAtLama,
+                ],
+                [
+                    'status' => $pemesanan->status,
+                    'catatan_mekanik' => $pemesanan->catatan_mekanik,
+                    'completed_at' => $pemesanan->completed_at,
+                ]
+            );
 
             if ($statusBaru === Pemesanan::STATUS_SELESAI) {
                 $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
@@ -165,6 +194,26 @@ class MekanikDashboardController extends Controller
             if (!$hasil['success']) {
                 return $this->errorResponse($hasil['message'], 400);
             }
+
+            $itemPemesanan = $hasil['data'];
+            $this->logAktivitas->catat(
+                $request->user(),
+                'tambah',
+                'pemesanan',
+                'item_pemesanan',
+                $itemPemesanan->id,
+                $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
+                "Menambahkan suku cadang ke pemesanan #{$pemesanan->kode_pemesanan}.",
+                null,
+                [
+                    'kode_pemesanan' => $pemesanan->kode_pemesanan,
+                    'id_suku_cadang' => $itemPemesanan->id_suku_cadang,
+                    'nama_suku_cadang' => $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
+                    'jumlah' => $data['jumlah'],
+                    'harga_saat_ini' => $itemPemesanan->harga_saat_ini,
+                ]
+            );
+
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
 
             return $this->successResponse($hasil['message'], $hasil['data'], 201);
@@ -188,10 +237,31 @@ class MekanikDashboardController extends Controller
                 return $this->errorResponse('Item pemesanan tidak ditemukan.', 404);
             }
 
+            $dataItemSebelum = [
+                'kode_pemesanan' => $pemesanan->kode_pemesanan,
+                'id_suku_cadang' => $itemPemesanan->id_suku_cadang,
+                'nama_suku_cadang' => $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
+                'jumlah' => $itemPemesanan->jumlah,
+                'harga_saat_ini' => $itemPemesanan->harga_saat_ini,
+            ];
+
             $hasil = $this->layananSukuCadang->hapusSukuCadang($pemesanan, $itemPemesanan->id);
             $kodeStatus = $hasil['status_code'] ?? 200;
 
             if (!$hasil['success']) return $this->errorResponse($hasil['message'], $kodeStatus);
+
+            $this->logAktivitas->catat(
+                $request->user(),
+                'hapus',
+                'pemesanan',
+                'item_pemesanan',
+                $itemPemesanan->id,
+                $dataItemSebelum['nama_suku_cadang'],
+                "Menghapus suku cadang dari pemesanan #{$pemesanan->kode_pemesanan}.",
+                $dataItemSebelum,
+                null
+            );
+
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_deleted'));
 
             return $this->successResponse($hasil['message']);

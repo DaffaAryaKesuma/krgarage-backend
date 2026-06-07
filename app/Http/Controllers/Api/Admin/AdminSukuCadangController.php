@@ -11,19 +11,26 @@ use App\Http\Requests\Admin\UpdateSukuCadangRequest;
 use App\Http\Requests\Admin\TambahStokRequest;
 use App\Http\Resources\SukuCadangResource;
 use App\Models\RiwayatStokSukuCadang;
+use App\Services\LogAktivitasAdminService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class AdminSukuCadangController extends Controller
 {
     use ApiResponseTrait;
 
     protected $layananNotifikasi;
+    protected $logAktivitasAdmin;
 
-    public function __construct(NotifikasiService $layananNotifikasi)
+    public function __construct(
+        NotifikasiService $layananNotifikasi,
+        LogAktivitasAdminService $logAktivitasAdmin,
+    )
     {
         $this->layananNotifikasi = $layananNotifikasi;
+        $this->logAktivitasAdmin = $logAktivitasAdmin;
     }
 
     /**
@@ -71,6 +78,25 @@ class AdminSukuCadangController extends Controller
             $sukuCadang = SukuCadang::create($request->validated());
 
             $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang->fresh());
+            $this->logAktivitasAdmin->catat(
+                $request->user(),
+                'tambah',
+                'inventaris',
+                'suku_cadang',
+                $sukuCadang->id,
+                $sukuCadang->nama_suku_cadang,
+                "Menambahkan suku cadang {$sukuCadang->nama_suku_cadang}.",
+                null,
+                $sukuCadang->only([
+                    'nama_suku_cadang',
+                    'id_kategori',
+                    'jumlah_stok',
+                    'harga_beli',
+                    'harga_jual',
+                    'batas_minimal_stok',
+                    'deskripsi',
+                ]),
+            );
 
             return $this->successResponse(
                 'Suku cadang berhasil ditambahkan',
@@ -108,15 +134,32 @@ class AdminSukuCadangController extends Controller
     {
         try {
             $batasMinimalSebelum = (int) $sukuCadang->batas_minimal_stok;
+            $dataSebelum = $sukuCadang->only(array_keys($request->validated()));
 
             $sukuCadang->update($request->validated());
             $sukuCadang = $sukuCadang->fresh();
+            $dataSesudah = $sukuCadang->only(array_keys($request->validated()));
+            $perubahan = $this->logAktivitasAdmin->perubahan($dataSebelum, $dataSesudah);
 
             if (
                 $request->has('batas_minimal_stok') &&
                 $batasMinimalSebelum !== (int) $sukuCadang->batas_minimal_stok
             ) {
                 $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang);
+            }
+
+            if (!empty($perubahan['sesudah'])) {
+                $this->logAktivitasAdmin->catat(
+                    $request->user(),
+                    'edit',
+                    'inventaris',
+                    'suku_cadang',
+                    $sukuCadang->id,
+                    $sukuCadang->nama_suku_cadang,
+                    "Mengubah data suku cadang {$sukuCadang->nama_suku_cadang}.",
+                    $perubahan['sebelum'],
+                    $perubahan['sesudah'],
+                );
             }
 
             return $this->successResponse(
@@ -136,8 +179,31 @@ class AdminSukuCadangController extends Controller
     public function destroy(SukuCadang $sukuCadang)
     {
         try {
+            $dataSebelum = $sukuCadang->only([
+                'nama_suku_cadang',
+                'id_kategori',
+                'jumlah_stok',
+                'harga_beli',
+                'harga_jual',
+                'batas_minimal_stok',
+                'deskripsi',
+            ]);
+            $targetId = $sukuCadang->id;
+            $targetLabel = $sukuCadang->nama_suku_cadang;
+
             // Hapus paksa suku cadang, biarkan DB set id_suku_cadang = null pada pesanan lama (krn foreign key ON DELETE SET NULL)
             $sukuCadang->delete();
+            $this->logAktivitasAdmin->catat(
+                request()->user(),
+                'hapus',
+                'inventaris',
+                'suku_cadang',
+                $targetId,
+                $targetLabel,
+                "Menghapus suku cadang {$targetLabel}.",
+                $dataSebelum,
+                null,
+            );
 
             return $this->successResponse('Suku cadang berhasil dihapus');
 
@@ -152,12 +218,20 @@ class AdminSukuCadangController extends Controller
      */
     public function tambahStok(TambahStokRequest $request, SukuCadang $sukuCadang)
     {
+        $pathFotoStruk = null;
+
         try {
             $data = $request->validated();
             $jumlah = (int) $data['jumlah'];
             $hargaBeliSatuan = (int) $data['harga_beli_satuan'];
+            $stokSebelumLog = (int) $sukuCadang->jumlah_stok;
+            $hargaBeliSebelumLog = (int) $sukuCadang->harga_beli;
 
-            DB::transaction(function () use ($request, $sukuCadang, $data, $jumlah, $hargaBeliSatuan) {
+            if ($request->hasFile('foto_struk')) {
+                $pathFotoStruk = $request->file('foto_struk')->store('struk-restok', 'public');
+            }
+
+            DB::transaction(function () use ($request, $sukuCadang, $data, $jumlah, $hargaBeliSatuan, $pathFotoStruk) {
                 $stokSebelum = (int) $sukuCadang->jumlah_stok;
                 $stokSesudah = $stokSebelum + $jumlah;
 
@@ -178,15 +252,42 @@ class AdminSukuCadangController extends Controller
                     'stok_sebelum' => $stokSebelum,
                     'stok_sesudah' => $stokSesudah,
                     'catatan' => $data['catatan'] ?? null,
+                    'foto_struk' => $pathFotoStruk,
                 ]);
             });
 
+            $sukuCadangTerbaru = $sukuCadang->fresh('kategori');
+            $this->logAktivitasAdmin->catat(
+                $request->user(),
+                'restok',
+                'inventaris',
+                'suku_cadang',
+                $sukuCadangTerbaru->id,
+                $sukuCadangTerbaru->nama_suku_cadang,
+                "Menambah stok {$sukuCadangTerbaru->nama_suku_cadang} sebanyak {$jumlah}.",
+                [
+                    'jumlah_stok' => $stokSebelumLog,
+                    'harga_beli' => $hargaBeliSebelumLog,
+                ],
+                [
+                    'jumlah_stok' => (int) $sukuCadangTerbaru->jumlah_stok,
+                    'harga_beli' => (int) $sukuCadangTerbaru->harga_beli,
+                    'harga_beli_satuan_restok' => $hargaBeliSatuan,
+                    'total_pengeluaran' => $jumlah * $hargaBeliSatuan,
+                    'foto_struk' => $pathFotoStruk,
+                ],
+            );
+
             return $this->successResponse(
                 'Stok suku cadang berhasil ditambah',
-                new SukuCadangResource($sukuCadang->fresh('kategori'))
+                new SukuCadangResource($sukuCadangTerbaru)
             );
 
         } catch (\Exception $e) {
+            if ($pathFotoStruk) {
+                Storage::disk('public')->delete($pathFotoStruk);
+            }
+
             Log::error('AdminSukuCadangController@tambahStok: ' . $e->getMessage());
             return $this->errorResponse('Gagal menambah stok suku cadang', 500, $e);
         }

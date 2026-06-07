@@ -8,14 +8,17 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+// Model User mewakili tabel pengguna untuk semua role: pelanggan, admin, mekanik, dan pemilik.
 class User extends Authenticatable
 {
+    // HasApiTokens dipakai Sanctum untuk token login API.
     use HasFactory, Notifiable, HasApiTokens;
 
+    // Nama tabel dibuat eksplisit karena tabel pengguna tidak mengikuti default users.
     protected $table = 'pengguna';
 
     /**
-     * Atribut yang boleh diisi secara massal.
+     * Atribut yang boleh diisi secara massal lewat create() atau update().
      */
     protected $fillable = [
         'nama',
@@ -26,7 +29,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Atribut yang disembunyikan saat serialisasi.
+     * Atribut yang disembunyikan saat data user dikirim sebagai JSON.
      */
     protected $hidden = [
         'password',
@@ -34,18 +37,20 @@ class User extends Authenticatable
     ];
 
     /**
-     * Casting atribut.
+     * Casting mengatur perubahan tipe data otomatis dari/ke database.
      */
     protected function casts(): array
     {
         return [
+            // Password otomatis di-hash saat disimpan jika belum berbentuk hash.
             'password' => 'hashed',
+            // last_seen otomatis dibaca sebagai object tanggal Carbon.
             'last_seen' => 'datetime',
         ];
     }
 
     /**
-     * Relasi: Satu pengguna bisa memiliki banyak vespa.
+     * Relasi: Satu pelanggan bisa memiliki banyak data vespa.
      */
     public function vespas(): HasMany
     {
@@ -53,7 +58,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relasi: Pengguna sebagai pelanggan memiliki banyak pemesanan.
+     * Relasi: User sebagai pelanggan memiliki banyak pemesanan.
      */
     public function pemesanan(): HasMany
     {
@@ -61,7 +66,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relasi: Pengguna sebagai mekanik menangani banyak pemesanan.
+     * Relasi: User sebagai mekanik menangani banyak pemesanan.
      */
     public function pemesananDitangani(): HasMany
     {
@@ -69,7 +74,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relasi: Pengguna memiliki banyak notifikasi.
+     * Relasi: User menerima banyak notifikasi.
      */
     public function notifikasi(): HasMany
     {
@@ -77,7 +82,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Query scope: Filter pengguna dengan role admin.
+     * Query scope: Memudahkan query User::admin().
      */
     public function scopeAdmin($query)
     {
@@ -85,7 +90,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Query scope: Filter pengguna dengan role mekanik.
+     * Query scope: Memudahkan query User::mekanik().
      */
     public function scopeMekanik($query)
     {
@@ -93,10 +98,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Query scope: Filter pengguna dengan role pelanggan.
+     * Query scope: Memudahkan query User::pelanggan().
      */
     public function scopePelanggan($query)
     {
+        // customer ikut diterima untuk kompatibilitas jika ada data lama.
         return $query->whereIn('role', ['pelanggan', 'customer']);
     }
 }
