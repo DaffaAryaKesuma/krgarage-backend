@@ -217,13 +217,17 @@ class PemesananController extends Controller
             // Broadcast realtime agar frontend yang sedang terbuka dapat refresh.
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'created'));
 
-            // Email konfirmasi bersifat tambahan; jika gagal, pemesanan tetap berhasil.
-            try {
-                $pemesanan->load('pengguna', 'vespa', 'layanan');
-                Mail::to($request->user()->email)->send(new EmailKonfirmasiPemesanan($pemesanan));
-            } catch (\Exception $e) {
-                Log::error('Gagal mengirim email: ' . $e->getMessage());
-            }
+            // Email konfirmasi bersifat tambahan dan dikirim setelah response agar tidak membuat request timeout.
+            $emailPelanggan = $request->user()->email;
+            $pemesananUntukEmail = $pemesanan->fresh(['pengguna', 'vespa', 'layanan']);
+
+            app()->terminating(function () use ($emailPelanggan, $pemesananUntukEmail) {
+                try {
+                    Mail::to($emailPelanggan)->send(new EmailKonfirmasiPemesanan($pemesananUntukEmail));
+                } catch (\Throwable $e) {
+                    Log::error('Gagal mengirim email: ' . $e->getMessage());
+                }
+            });
 
             // Kirim response sukses ke frontend.
             return $this->successResponse('Pemesanan servis berhasil dibuat!', new PemesananResource($pemesanan->load('layanan')), 201);

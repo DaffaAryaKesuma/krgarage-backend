@@ -36,7 +36,16 @@ class NotifikasiService
             
             // Email hanya dikirim jika pelanggan punya email.
             if ($pemesanan->pengguna && $pemesanan->pengguna->email) {
-                Mail::to($pemesanan->pengguna->email)->send(new EmailUpdateStatusPemesanan($pemesanan, $judul, $pesan));
+                $emailPelanggan = $pemesanan->pengguna->email;
+                $pemesananUntukEmail = $pemesanan;
+
+                app()->terminating(function () use ($emailPelanggan, $pemesananUntukEmail, $judul, $pesan) {
+                    try {
+                        Mail::to($emailPelanggan)->send(new EmailUpdateStatusPemesanan($pemesananUntukEmail, $judul, $pesan));
+                    } catch (\Throwable $e) {
+                        \Log::error('Gagal mengirim email status update: ' . $e->getMessage());
+                    }
+                });
             }
         } catch (\Exception $e) {
             // Gagal email tidak boleh menggagalkan proses utama.
@@ -456,4 +465,3 @@ class NotifikasiService
         }
     }
 }
-
