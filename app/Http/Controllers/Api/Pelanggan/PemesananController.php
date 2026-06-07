@@ -226,9 +226,27 @@ class PemesananController extends Controller
                 }
 
                 try {
+                    Log::info('Mulai mengirim email konfirmasi pemesanan.', [
+                        'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                        'to' => $emailPelanggan,
+                        'mailer' => config('mail.default'),
+                        'host' => config('mail.mailers.smtp.host'),
+                        'port' => config('mail.mailers.smtp.port'),
+                        'scheme' => config('mail.mailers.smtp.scheme'),
+                    ]);
+
                     Mail::to($emailPelanggan)->send(new EmailKonfirmasiPemesanan($pemesananUntukEmail));
+
+                    Log::info('Email konfirmasi pemesanan berhasil dikirim.', [
+                        'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                        'to' => $emailPelanggan,
+                    ]);
                 } catch (\Throwable $e) {
-                    Log::error('Gagal mengirim email: ' . $e->getMessage());
+                    Log::error('Gagal mengirim email konfirmasi pemesanan: ' . $e->getMessage(), [
+                        'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                        'to' => $emailPelanggan,
+                        'exception' => get_class($e),
+                    ]);
                 }
             });
 

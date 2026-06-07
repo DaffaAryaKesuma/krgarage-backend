@@ -41,9 +41,30 @@ class NotifikasiService
 
                 app()->terminating(function () use ($emailPelanggan, $pemesananUntukEmail, $judul, $pesan) {
                     try {
+                        \Log::info('Mulai mengirim email status pemesanan.', [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'judul' => $judul,
+                            'to' => $emailPelanggan,
+                            'mailer' => config('mail.default'),
+                            'host' => config('mail.mailers.smtp.host'),
+                            'port' => config('mail.mailers.smtp.port'),
+                            'scheme' => config('mail.mailers.smtp.scheme'),
+                        ]);
+
                         Mail::to($emailPelanggan)->send(new EmailUpdateStatusPemesanan($pemesananUntukEmail, $judul, $pesan));
+
+                        \Log::info('Email status pemesanan berhasil dikirim.', [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'judul' => $judul,
+                            'to' => $emailPelanggan,
+                        ]);
                     } catch (\Throwable $e) {
-                        \Log::error('Gagal mengirim email status update: ' . $e->getMessage());
+                        \Log::error('Gagal mengirim email status pemesanan: ' . $e->getMessage(), [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'judul' => $judul,
+                            'to' => $emailPelanggan,
+                            'exception' => get_class($e),
+                        ]);
                     }
                 });
             }
