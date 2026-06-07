@@ -34,8 +34,9 @@ class NotifikasiController extends Controller
         }
 
         $daftarNotifikasi = Notifikasi::where('id_pengguna', Auth::id())
-            ->with('pemesanan')
+            ->with('pemesanan:id,kode_pemesanan,status,status_pembayaran,tanggal_pemesanan,jam_pemesanan')
             ->orderBy('created_at', 'desc')
+            ->limit(50)
             ->get();
 
         $jumlahBelumDibaca = Notifikasi::where('id_pengguna', Auth::id())
