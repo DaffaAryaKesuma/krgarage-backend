@@ -12,7 +12,7 @@ use App\Models\User;
 // Service untuk notifikasi dan pengelolaan suku cadang pemesanan.
 use App\Services\NotifikasiService;
 use App\Services\PemesananSukuCadangService;
-use App\Services\LogAktivitasAdminService;
+use App\Services\LogAktivitasService;
 // Trait response JSON konsisten.
 use App\Traits\ApiResponseTrait;
 // Form request validasi endpoint admin.
@@ -42,7 +42,7 @@ class AdminPemesananController extends Controller
     public function __construct(
         NotifikasiService $layananNotifikasi, 
         PemesananSukuCadangService $layananSukuCadang,
-        LogAktivitasAdminService $logAktivitas
+        LogAktivitasService $logAktivitas
     ) {
         $this->layananNotifikasi = $layananNotifikasi;
         $this->layananSukuCadang = $layananSukuCadang;
@@ -187,7 +187,7 @@ class AdminPemesananController extends Controller
             );
 
             // Jalankan efek samping status: notifikasi, pengurangan stok, update tanggal servis.
-            $this->handleStatusTransitionEffects($pemesanan, $statusLama, $statusBaru);
+            $this->handleStatusTransitionEffects($pemesanan, $statusLama, $statusBaru, $request->user());
             // Broadcast realtime agar frontend role lain ikut refresh.
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'status_updated'));
 
@@ -467,12 +467,13 @@ class AdminPemesananController extends Controller
     /**
      * Ekstraksi logic transisi status untuk Clean Code.
      */
-    private function handleStatusTransitionEffects(Pemesanan $pemesanan, $statusLama, $statusBaru)
+    private function handleStatusTransitionEffects(Pemesanan $pemesanan, $statusLama, $statusBaru, ?User $aktor)
     {
         // Saat status menjadi selesai, stok dikurangi dan pelanggan diberi notifikasi.
         if ($statusBaru === Pemesanan::STATUS_SELESAI && $statusLama !== Pemesanan::STATUS_SELESAI) {
             // Kurangi stok semua suku cadang yang dipakai pada pemesanan.
             $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+            $this->catatLogPenguranganStokSelesai($pemesanan, $ringkasanPerubahanStok, $aktor);
 
             // Jika stok melewati batas minimal, beri notifikasi ke pemilik.
             foreach ($ringkasanPerubahanStok as $perubahanStok) {
@@ -501,6 +502,38 @@ class AdminPemesananController extends Controller
         } elseif ($statusBaru === Pemesanan::STATUS_BATAL) {
             // Notifikasi saat pemesanan dibatalkan.
             $this->layananNotifikasi->notifikasiPemesananDibatalkan($pemesanan);
+        }
+    }
+
+    /**
+     * Catat audit stok suku cadang yang berkurang saat pemesanan selesai.
+     *
+     * @param array<int, array{suku_cadang: mixed, stok_sebelum: int, stok_sesudah: int}> $ringkasanPerubahanStok
+     */
+    private function catatLogPenguranganStokSelesai(Pemesanan $pemesanan, array $ringkasanPerubahanStok, ?User $aktor): void
+    {
+        foreach ($ringkasanPerubahanStok as $perubahanStok) {
+            $sukuCadang = $perubahanStok['suku_cadang'];
+            $stokSebelum = (int) $perubahanStok['stok_sebelum'];
+            $stokSesudah = (int) $perubahanStok['stok_sesudah'];
+
+            if ($stokSebelum === $stokSesudah) {
+                continue;
+            }
+
+            $namaSukuCadang = $sukuCadang->nama_suku_cadang ?? 'Suku cadang';
+
+            $this->logAktivitas->catat(
+                $aktor,
+                'edit',
+                'inventaris',
+                'suku_cadang',
+                $sukuCadang->id ?? null,
+                $namaSukuCadang,
+                "Booking #{$pemesanan->kode_pemesanan} selesai, stok {$namaSukuCadang} berkurang dari {$stokSebelum} menjadi {$stokSesudah}.",
+                ['jumlah_stok' => $stokSebelum],
+                ['jumlah_stok' => $stokSesudah]
+            );
         }
     }
 }

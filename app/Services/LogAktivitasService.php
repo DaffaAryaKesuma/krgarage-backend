@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\LogAktivitasAdmin;
+use App\Models\LogAktivitas;
 use App\Models\User;
 
-class LogAktivitasAdminService
+class LogAktivitasService
 {
     /**
      * Catat aktivitas penting pengguna untuk audit pemilik.
@@ -23,11 +23,10 @@ class LogAktivitasAdminService
         ?string $deskripsi = null,
         ?array $dataSebelum = null,
         ?array $dataSesudah = null,
-    ): LogAktivitasAdmin {
-        return LogAktivitasAdmin::create([
-            'id_admin' => $aktor?->role === 'admin' ? $aktor->id : null,
+    ): LogAktivitas {
+        return LogAktivitas::create([
             'id_pengguna' => $aktor?->id,
-            'role_pengguna' => $aktor?->role,
+            'role' => $aktor?->role,
             'aksi' => $aksi,
             'modul' => $modul,
             'target_tipe' => $targetTipe,

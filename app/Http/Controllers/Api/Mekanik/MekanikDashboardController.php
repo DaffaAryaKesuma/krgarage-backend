@@ -6,9 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Events\PemesananBerubah;
 use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
+use App\Models\User;
 use App\Services\NotifikasiService;
 use App\Services\PemesananSukuCadangService;
-use App\Services\LogAktivitasAdminService;
+use App\Services\LogAktivitasService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Requests\Mekanik\UpdateStatusPemesananMekanikRequest;
 use App\Http\Requests\Mekanik\TambahSukuCadangRequest;
@@ -28,7 +29,7 @@ class MekanikDashboardController extends Controller
     public function __construct(
         NotifikasiService $layananNotifikasi,
         PemesananSukuCadangService $layananSukuCadang,
-        LogAktivitasAdminService $logAktivitas
+        LogAktivitasService $logAktivitas
     )
     {
         $this->layananNotifikasi = $layananNotifikasi;
@@ -123,7 +124,7 @@ class MekanikDashboardController extends Controller
                 return $this->errorResponse('Mekanik hanya bisa menyelesaikan servis yang statusnya In Progress.', 400);
             }
 
-            $this->handleCompletionEffects($pemesanan, $statusBaru);
+            $this->handleCompletionEffects($pemesanan, $statusBaru, $request->user());
 
             $pemesanan->status = $statusBaru;
             if ($statusBaru === Pemesanan::STATUS_SELESAI) {
@@ -312,16 +313,49 @@ class MekanikDashboardController extends Controller
         }
     }
 
-    private function handleCompletionEffects(Pemesanan $pemesanan, $statusBaru)
+    private function handleCompletionEffects(Pemesanan $pemesanan, $statusBaru, ?User $aktor)
     {
         if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->itemPemesanan()->exists()) {
             $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
+            $this->catatLogPenguranganStokSelesai($pemesanan, $ringkasanPerubahanStok, $aktor);
             foreach ($ringkasanPerubahanStok as $perubahan) {
                 $this->layananNotifikasi->notifikasiPemilikStokMenipis($perubahan['suku_cadang'], $perubahan['stok_sebelum']);
             }
         }
         if ($statusBaru === Pemesanan::STATUS_SELESAI && $pemesanan->vespa) {
             $pemesanan->vespa->perbaruiTanggalServisDariPemesanan($pemesanan);
+        }
+    }
+
+    /**
+     * Catat audit stok suku cadang yang berkurang saat pemesanan selesai.
+     *
+     * @param array<int, array{suku_cadang: mixed, stok_sebelum: int, stok_sesudah: int}> $ringkasanPerubahanStok
+     */
+    private function catatLogPenguranganStokSelesai(Pemesanan $pemesanan, array $ringkasanPerubahanStok, ?User $aktor): void
+    {
+        foreach ($ringkasanPerubahanStok as $perubahanStok) {
+            $sukuCadang = $perubahanStok['suku_cadang'];
+            $stokSebelum = (int) $perubahanStok['stok_sebelum'];
+            $stokSesudah = (int) $perubahanStok['stok_sesudah'];
+
+            if ($stokSebelum === $stokSesudah) {
+                continue;
+            }
+
+            $namaSukuCadang = $sukuCadang->nama_suku_cadang ?? 'Suku cadang';
+
+            $this->logAktivitas->catat(
+                $aktor,
+                'edit',
+                'inventaris',
+                'suku_cadang',
+                $sukuCadang->id ?? null,
+                $namaSukuCadang,
+                "Booking #{$pemesanan->kode_pemesanan} selesai, stok {$namaSukuCadang} berkurang dari {$stokSebelum} menjadi {$stokSesudah}.",
+                ['jumlah_stok' => $stokSebelum],
+                ['jumlah_stok' => $stokSesudah]
+            );
         }
     }
 

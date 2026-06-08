@@ -6,16 +6,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class LogAktivitasAdmin extends Model
+class LogAktivitas extends Model
 {
     use HasFactory;
 
-    protected $table = 'log_aktivitas_admin';
+    protected $table = 'log_aktivitas';
 
     protected $fillable = [
-        'id_admin',
         'id_pengguna',
-        'role_pengguna',
+        'role',
         'aksi',
         'modul',
         'target_tipe',
@@ -30,11 +29,6 @@ class LogAktivitasAdmin extends Model
         'data_sebelum' => 'array',
         'data_sesudah' => 'array',
     ];
-
-    public function admin(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'id_admin');
-    }
 
     public function aktor(): BelongsTo
     {

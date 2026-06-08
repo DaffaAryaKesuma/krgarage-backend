@@ -13,7 +13,7 @@ use App\Models\Layanan;
 use App\Models\User;
 // Service notifikasi agar logic notifikasi tidak penuh di controller.
 use App\Services\NotifikasiService;
-use App\Services\LogAktivitasAdminService;
+use App\Services\LogAktivitasService;
 // Email konfirmasi pemesanan pelanggan.
 use App\Mail\EmailKonfirmasiPemesanan;
 // Trait response JSON konsisten.
@@ -38,7 +38,7 @@ class PemesananController extends Controller
     // Dependency injection NotifikasiService dari container Laravel.
     public function __construct(
         NotifikasiService $layananNotifikasi,
-        LogAktivitasAdminService $logAktivitas
+        LogAktivitasService $logAktivitas
     )
     {
         $this->layananNotifikasi = $layananNotifikasi;

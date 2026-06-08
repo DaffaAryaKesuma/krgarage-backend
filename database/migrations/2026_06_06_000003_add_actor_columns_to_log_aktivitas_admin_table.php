@@ -15,11 +15,9 @@ return new class extends Migration
         });
 
         DB::table('log_aktivitas_admin')
-            ->leftJoin('pengguna', 'log_aktivitas_admin.id_admin', '=', 'pengguna.id')
             ->whereNull('log_aktivitas_admin.id_pengguna')
             ->update([
                 'log_aktivitas_admin.id_pengguna' => DB::raw('log_aktivitas_admin.id_admin'),
-                'log_aktivitas_admin.role_pengguna' => DB::raw('pengguna.role'),
             ]);
     }
 

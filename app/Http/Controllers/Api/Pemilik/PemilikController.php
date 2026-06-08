@@ -8,7 +8,7 @@ use App\Models\SukuCadang;
 use App\Models\Pemesanan;
 use App\Models\ItemPemesanan;
 use App\Models\RiwayatStokSukuCadang;
-use App\Models\LogAktivitasAdmin;
+use App\Models\LogAktivitas;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -197,7 +197,7 @@ class PemilikController extends Controller
         }
     }
 
-    public function logAktivitasAdmin(Request $request)
+    public function logAktivitas(Request $request)
     {
         try {
             $startDate = $request->query('start_date');
@@ -205,10 +205,9 @@ class PemilikController extends Controller
             $bulan = $request->query('month');
             $tahun = $request->query('year');
             $modul = $request->query('modul');
-            $rolePengguna = $request->query('role_pengguna');
+            $role = $request->query('role', $request->query('role_pengguna'));
 
-            $query = LogAktivitasAdmin::with([
-                'admin:id,nama,role',
+            $query = LogAktivitas::with([
                 'aktor:id,nama,role',
             ]);
 
@@ -216,8 +215,8 @@ class PemilikController extends Controller
                 $query->where('modul', $modul);
             }
 
-            if ($rolePengguna && $rolePengguna !== 'semua') {
-                $query->where('role_pengguna', $rolePengguna);
+            if ($role && $role !== 'semua') {
+                $query->where('role', $role);
             }
 
             if ($startDate && $endDate) {
@@ -237,7 +236,7 @@ class PemilikController extends Controller
             return $this->successResponse('Log aktivitas berhasil dimuat', $logs);
 
         } catch (\Exception $e) {
-            Log::error('PemilikController@logAktivitasAdmin: ' . $e->getMessage());
+            Log::error('PemilikController@logAktivitas: ' . $e->getMessage());
             return $this->errorResponse('Gagal mengambil log aktivitas', 500, $e);
         }
     }

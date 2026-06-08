@@ -11,7 +11,7 @@ use App\Http\Requests\Admin\UpdateSukuCadangRequest;
 use App\Http\Requests\Admin\TambahStokRequest;
 use App\Http\Resources\SukuCadangResource;
 use App\Models\RiwayatStokSukuCadang;
-use App\Services\LogAktivitasAdminService;
+use App\Services\LogAktivitasService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,15 +22,15 @@ class AdminSukuCadangController extends Controller
     use ApiResponseTrait;
 
     protected $layananNotifikasi;
-    protected $logAktivitasAdmin;
+    protected $logAktivitas;
 
     public function __construct(
         NotifikasiService $layananNotifikasi,
-        LogAktivitasAdminService $logAktivitasAdmin,
+        LogAktivitasService $logAktivitas,
     )
     {
         $this->layananNotifikasi = $layananNotifikasi;
-        $this->logAktivitasAdmin = $logAktivitasAdmin;
+        $this->logAktivitas = $logAktivitas;
     }
 
     /**
@@ -78,7 +78,7 @@ class AdminSukuCadangController extends Controller
             $sukuCadang = SukuCadang::create($request->validated());
 
             $this->layananNotifikasi->notifikasiPemilikStokMenipis($sukuCadang->fresh());
-            $this->logAktivitasAdmin->catat(
+            $this->logAktivitas->catat(
                 $request->user(),
                 'tambah',
                 'inventaris',
@@ -139,7 +139,7 @@ class AdminSukuCadangController extends Controller
             $sukuCadang->update($request->validated());
             $sukuCadang = $sukuCadang->fresh();
             $dataSesudah = $sukuCadang->only(array_keys($request->validated()));
-            $perubahan = $this->logAktivitasAdmin->perubahan($dataSebelum, $dataSesudah);
+            $perubahan = $this->logAktivitas->perubahan($dataSebelum, $dataSesudah);
 
             if (
                 $request->has('batas_minimal_stok') &&
@@ -149,7 +149,7 @@ class AdminSukuCadangController extends Controller
             }
 
             if (!empty($perubahan['sesudah'])) {
-                $this->logAktivitasAdmin->catat(
+                $this->logAktivitas->catat(
                     $request->user(),
                     'edit',
                     'inventaris',
@@ -193,7 +193,7 @@ class AdminSukuCadangController extends Controller
 
             // Hapus paksa suku cadang, biarkan DB set id_suku_cadang = null pada pesanan lama (krn foreign key ON DELETE SET NULL)
             $sukuCadang->delete();
-            $this->logAktivitasAdmin->catat(
+            $this->logAktivitas->catat(
                 request()->user(),
                 'hapus',
                 'inventaris',
@@ -257,7 +257,7 @@ class AdminSukuCadangController extends Controller
             });
 
             $sukuCadangTerbaru = $sukuCadang->fresh('kategori');
-            $this->logAktivitasAdmin->catat(
+            $this->logAktivitas->catat(
                 $request->user(),
                 'restok',
                 'inventaris',
