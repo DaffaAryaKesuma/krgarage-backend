@@ -7,6 +7,15 @@ class TambahVespaRequest extends FormRequest {
     // true karena hak akses pelanggan sudah dijaga oleh middleware route.
     public function authorize(): bool { return true; }
 
+    // Normalisasi plat nomor sebelum validasi unique dijalankan.
+    protected function prepareForValidation(): void {
+        if ($this->has('plat_nomor')) {
+            $this->merge([
+                'plat_nomor' => strtoupper(trim((string) $this->input('plat_nomor'))),
+            ]);
+        }
+    }
+
     // rules() memastikan data Vespa baru lengkap sebelum disimpan.
     public function rules(): array {
         return [

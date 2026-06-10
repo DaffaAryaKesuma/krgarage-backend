@@ -9,6 +9,7 @@ use App\Models\SukuCadang;
 use App\Models\User;
 // Mail dipakai untuk email update status ke pelanggan.
 use Illuminate\Support\Facades\Mail;
+use App\Mail\EmailPembayaranLunas;
 use App\Mail\EmailUpdateStatusPemesanan;
 
 // Service ini memusatkan pembuatan notifikasi agar controller tidak terlalu ramai.
@@ -71,6 +72,49 @@ class NotifikasiService
         } catch (\Exception $e) {
             // Gagal email tidak boleh menggagalkan proses utama.
             \Log::error('Gagal mengirim email status update: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Kirim email bukti pembayaran lunas ke pelanggan.
+     */
+    private function kirimEmailPembayaranLunas(Pemesanan $pemesanan): void
+    {
+        try {
+            $pemesanan->loadMissing('pengguna', 'vespa', 'layanan', 'itemPemesanan.sukuCadang');
+
+            if ($pemesanan->pengguna && $pemesanan->pengguna->email) {
+                $emailPelanggan = $pemesanan->pengguna->email;
+                $pemesananUntukEmail = $pemesanan;
+
+                app()->terminating(function () use ($emailPelanggan, $pemesananUntukEmail) {
+                    try {
+                        \Log::info('Mulai mengirim email pembayaran lunas.', [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'to' => $emailPelanggan,
+                            'mailer' => config('mail.default'),
+                            'host' => config('mail.mailers.smtp.host'),
+                            'port' => config('mail.mailers.smtp.port'),
+                            'scheme' => config('mail.mailers.smtp.scheme'),
+                        ]);
+
+                        Mail::to($emailPelanggan)->send(new EmailPembayaranLunas($pemesananUntukEmail));
+
+                        \Log::info('Email pembayaran lunas berhasil dikirim.', [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'to' => $emailPelanggan,
+                        ]);
+                    } catch (\Throwable $e) {
+                        \Log::error('Gagal mengirim email pembayaran lunas: ' . $e->getMessage(), [
+                            'kode_pemesanan' => $pemesananUntukEmail->kode_pemesanan,
+                            'to' => $emailPelanggan,
+                            'exception' => get_class($e),
+                        ]);
+                    }
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::error('Gagal menyiapkan email pembayaran lunas: ' . $e->getMessage());
         }
     }
 
@@ -267,6 +311,29 @@ class NotifikasiService
             $pesan,
             $pemesanan->id
         );
+    }
+
+    /**
+     * Notifikasi dan email ke pelanggan saat pembayaran pemesanan lunas.
+     */
+    public function notifikasiPelangganPembayaranLunas(Pemesanan $pemesanan): void
+    {
+        if ($pemesanan->status_pembayaran !== Pemesanan::PAYMENT_STATUS_PAID) {
+            return;
+        }
+
+        $totalPembayaran = 'Rp' . number_format((float) ($pemesanan->total_harga ?? 0), 0, ',', '.');
+        $pesan = "Pembayaran untuk pemesanan {$pemesanan->kode_pemesanan} telah lunas ({$totalPembayaran}). Bukti pembayaran telah dikirim ke email Anda.";
+
+        $this->buatNotifikasi(
+            $pemesanan->id_pengguna,
+            Notifikasi::TIPE_PEMBAYARAN_DITERIMA,
+            'Pembayaran Lunas',
+            $pesan,
+            $pemesanan->id
+        );
+
+        $this->kirimEmailPembayaranLunas($pemesanan);
     }
 
     /**

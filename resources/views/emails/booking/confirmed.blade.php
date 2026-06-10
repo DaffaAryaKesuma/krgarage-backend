@@ -4,7 +4,7 @@
 Terima kasih telah melakukan pemesanan servis di **KRGarage**. 
 Pesanan Anda telah berhasil kami terima. Berikut adalah rincian jadwal Anda:
 
-**Detail Kendaraan:** {{ $pemesanan->vespa->model ?? 'Vespa' }} ({{ $pemesanan->vespa->plat_nomor ?? '-' }})  
+**Detail Kendaraan:** {{ $pemesanan->vespa->model ?? 'Vespa' }} ({{ strtoupper($pemesanan->vespa->plat_nomor ?? '-') }})  
 **Tanggal Datang:** {{ \Carbon\Carbon::parse($pemesanan->tanggal_pemesanan)->locale('id')->translatedFormat('l, d F Y') }}  
 **Tujuan Servis:** {{ $pemesanan->layanan->pluck('nama_layanan')->join(', ') }}  
 **Catatan:**  {{ $pemesanan->catatan_pelanggan ?? 'Tidak ada catatan tambahan' }}

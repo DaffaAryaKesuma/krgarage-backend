@@ -254,6 +254,7 @@ class AdminPemesananController extends Controller
 
             // Jika lunas, beri notifikasi ke pemilik.
             if ($statusPembayaranBaru === Pemesanan::PAYMENT_STATUS_PAID) {
+                $this->layananNotifikasi->notifikasiPelangganPembayaranLunas($pemesanan);
                 $this->layananNotifikasi->notifikasiPemilikPembayaranDiterima($pemesanan);
             }
             // Broadcast perubahan pembayaran.

@@ -39,6 +39,14 @@ class Vespa extends Model
     protected $appends = ['perlu_servis', 'hari_hingga_servis'];
 
     /**
+     * Mutator: plat nomor selalu disimpan uppercase agar data konsisten.
+     */
+    public function setPlatNomorAttribute($value): void
+    {
+        $this->attributes['plat_nomor'] = strtoupper(trim((string) $value));
+    }
+
+    /**
      * Relasi: Vespa dimiliki oleh satu pengguna/pelanggan.
      */
     public function pengguna(): BelongsTo
