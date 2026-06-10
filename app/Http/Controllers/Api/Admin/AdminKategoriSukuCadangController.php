@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\KategoriSukuCadang;
-use App\Services\LogAktivitasAdminService;
+use App\Services\LogAktivitasService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -12,7 +12,7 @@ class AdminKategoriSukuCadangController extends Controller
 {
     protected $logAktivitasAdmin;
 
-    public function __construct(LogAktivitasAdminService $logAktivitasAdmin)
+    public function __construct(LogAktivitasService $logAktivitasAdmin)
     {
         $this->logAktivitasAdmin = $logAktivitasAdmin;
     }
