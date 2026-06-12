@@ -27,12 +27,18 @@ class Vespa extends Model
         'tanggal_servis_terakhir',
         'jeda_hari_servis',
         'tanggal_servis_selanjutnya',
+        'reminder_h_minus_3_sent_at',
+        'reminder_due_date_sent_at',
+        'reminder_h_plus_7_sent_at',
     ];
 
     // Kolom tanggal otomatis dibaca sebagai object date/Carbon oleh Laravel.
     protected $casts = [
         'tanggal_servis_terakhir'    => 'date',
         'tanggal_servis_selanjutnya' => 'date',
+        'reminder_h_minus_3_sent_at'  => 'datetime',
+        'reminder_due_date_sent_at'   => 'datetime',
+        'reminder_h_plus_7_sent_at'   => 'datetime',
     ];
 
     // Field tambahan ini ikut muncul saat model Vespa dikirim sebagai JSON.
@@ -98,6 +104,7 @@ class Vespa extends Model
         // Default jeda 90 hari dipakai jika pelanggan belum mengatur jeda servis.
         $this->tanggal_servis_terakhir      = now();
         $this->tanggal_servis_selanjutnya   = now()->addDays($this->jeda_hari_servis ?? 90);
+        $this->resetPengingatServisEmail();
         $this->save();
     }
 
@@ -137,6 +144,7 @@ class Vespa extends Model
         $jedaHariServis                   = $this->jeda_hari_servis ?? 30;
         $this->tanggal_servis_selanjutnya = \Carbon\Carbon::parse($pemesanan->tanggal_pemesanan)
             ->addDays($jedaHariServis);
+        $this->resetPengingatServisEmail();
         $this->save();
     }
 
@@ -177,6 +185,8 @@ class Vespa extends Model
      */
     public function sinkronTanggalServisDariAtribut(): void
     {
+        $tanggalServisSelanjutnyaLama = optional($this->tanggal_servis_selanjutnya)->toDateString();
+
         // Jika subquery menemukan tanggal pemesanan selesai terakhir, pakai tanggal itu.
         if (isset($this->attributes['last_completed_booking_date']) && $this->attributes['last_completed_booking_date']) {
             $this->tanggal_servis_terakhir    = $this->attributes['last_completed_booking_date'];
@@ -188,6 +198,25 @@ class Vespa extends Model
             $this->tanggal_servis_terakhir    = null;
             $this->tanggal_servis_selanjutnya = null;
         }
+
+        $tanggalServisSelanjutnyaBaru = optional($this->tanggal_servis_selanjutnya)->toDateString();
+        if ($tanggalServisSelanjutnyaLama !== $tanggalServisSelanjutnyaBaru) {
+            $this->resetPengingatServisEmail();
+        }
+    }
+
+    /**
+     * Reset penanda email reminder saat siklus servis berubah.
+     */
+    public function resetPengingatServisEmail(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn($this->getTable(), 'reminder_h_minus_3_sent_at')) {
+            return;
+        }
+
+        $this->reminder_h_minus_3_sent_at = null;
+        $this->reminder_due_date_sent_at = null;
+        $this->reminder_h_plus_7_sent_at = null;
     }
 }
 
