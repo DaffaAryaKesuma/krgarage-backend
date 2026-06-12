@@ -197,25 +197,29 @@ class MekanikDashboardController extends Controller
             }
 
             $itemPemesanan = $hasil['data'];
-            $this->logAktivitas->catat(
-                $request->user(),
-                'tambah',
-                'pemesanan',
-                'item_pemesanan',
-                $itemPemesanan->id,
-                $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
-                "Menambahkan suku cadang ke pemesanan #{$pemesanan->kode_pemesanan}.",
-                null,
-                [
-                    'kode_pemesanan' => $pemesanan->kode_pemesanan,
-                    'id_suku_cadang' => $itemPemesanan->id_suku_cadang,
-                    'nama_suku_cadang' => $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
-                    'jumlah' => $data['jumlah'],
-                    'harga_saat_ini' => $itemPemesanan->harga_saat_ini,
-                ]
-            );
+            $this->jalankanEfekSampingAman('audit mekanik tambah suku cadang', function () use ($request, $pemesanan, $itemPemesanan, $data) {
+                $this->logAktivitas->catat(
+                    $request->user(),
+                    'tambah',
+                    'pemesanan',
+                    'item_pemesanan',
+                    $itemPemesanan->id,
+                    $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
+                    "Menambahkan suku cadang ke pemesanan #{$pemesanan->kode_pemesanan}.",
+                    null,
+                    [
+                        'kode_pemesanan' => $pemesanan->kode_pemesanan,
+                        'id_suku_cadang' => $itemPemesanan->id_suku_cadang,
+                        'nama_suku_cadang' => $itemPemesanan->nama_suku_cadang_saat_ini ?? $itemPemesanan->sukuCadang?->nama_suku_cadang,
+                        'jumlah' => $data['jumlah'],
+                        'harga_saat_ini' => $itemPemesanan->harga_saat_ini,
+                    ]
+                );
+            });
 
-            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
+            $this->jalankanEfekSampingAman('broadcast mekanik tambah suku cadang', function () use ($pemesanan) {
+                broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
+            });
 
             return $this->successResponse($hasil['message'], $hasil['data'], 201);
 
@@ -356,6 +360,20 @@ class MekanikDashboardController extends Controller
                 ['jumlah_stok' => $stokSebelum],
                 ['jumlah_stok' => $stokSesudah]
             );
+        }
+    }
+
+    /**
+     * Efek samping seperti audit dan broadcast tidak boleh menggagalkan aksi utama.
+     */
+    private function jalankanEfekSampingAman(string $namaAksi, callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            Log::error("Gagal menjalankan {$namaAksi}: " . $e->getMessage(), [
+                'exception' => get_class($e),
+            ]);
         }
     }
 

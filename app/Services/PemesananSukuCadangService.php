@@ -8,6 +8,7 @@ use App\Models\ItemPemesanan;
 use App\Models\SukuCadang;
 // Collection dipakai sebagai tipe return daftar suku cadang.
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Schema;
 
 // Service ini menyatukan logika suku cadang pemesanan agar tidak duplikat di controller admin/mekanik.
 class PemesananSukuCadangService
@@ -48,15 +49,19 @@ class PemesananSukuCadangService
             $itemSudahAda->save();
             $itemPemesanan = $itemSudahAda;
         } else {
-            // Buat item pemesanan baru.
-            $itemPemesanan = ItemPemesanan::create([
+            $dataItemBaru = [
                 'id_pemesanan'  => $pemesanan->id,
                 'id_suku_cadang' => $sukuCadang->id,
-                // Snapshot nama dan harga agar riwayat tetap konsisten meski master berubah.
-                'nama_suku_cadang_saat_ini' => $sukuCadang->nama_suku_cadang,
                 'jumlah'        => $jumlah,
                 'harga_saat_ini' => $sukuCadang->harga_jual,
-            ]);
+            ];
+
+            if (Schema::hasColumn('item_pemesanan', 'nama_suku_cadang_saat_ini')) {
+                $dataItemBaru['nama_suku_cadang_saat_ini'] = $sukuCadang->nama_suku_cadang;
+            }
+
+            // Buat item pemesanan baru.
+            $itemPemesanan = ItemPemesanan::create($dataItemBaru);
         }
 
         // Catatan: stok baru dikurangi saat pemesanan berubah menjadi Selesai.
