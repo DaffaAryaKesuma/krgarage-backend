@@ -174,26 +174,31 @@ class AdminPemesananController extends Controller
                 $dataSesudah['completed_at'] = $pemesanan->completed_at;
             }
 
-            $this->logAktivitas->catat(
-                $request->user(),
-                'edit',
-                'pemesanan',
-                'pemesanan',
-                $pemesanan->id,
-                $pemesanan->kode_pemesanan,
-                "Mengubah status pemesanan #{$pemesanan->kode_pemesanan} dari {$statusLama} menjadi {$statusBaru}",
-                $dataSebelum,
-                $dataSesudah
-            );
+            $this->jalankanEfekSampingAman('audit status pemesanan', function () use ($request, $pemesanan, $statusLama, $statusBaru, $dataSebelum, $dataSesudah) {
+                $this->logAktivitas->catat(
+                    $request->user(),
+                    'edit',
+                    'pemesanan',
+                    'pemesanan',
+                    $pemesanan->id,
+                    $pemesanan->kode_pemesanan,
+                    "Mengubah status pemesanan #{$pemesanan->kode_pemesanan} dari {$statusLama} menjadi {$statusBaru}",
+                    $dataSebelum,
+                    $dataSesudah
+                );
+            });
 
             // Jalankan efek samping status: notifikasi, pengurangan stok, update tanggal servis.
             $this->handleStatusTransitionEffects($pemesanan, $statusLama, $statusBaru, $request->user());
+
             // Broadcast realtime agar frontend role lain ikut refresh.
-            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'status_updated'));
+            $this->jalankanEfekSampingAman('broadcast status pemesanan', function () use ($pemesanan) {
+                broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'status_updated'));
+            });
 
             return $this->successResponse(
                 'Status pemesanan berhasil diperbarui!',
-                new PemesananResource($pemesanan)
+                new PemesananResource($pemesanan->fresh())
             );
 
         } catch (\Exception $e) {
@@ -474,14 +479,18 @@ class AdminPemesananController extends Controller
         if ($statusBaru === Pemesanan::STATUS_SELESAI && $statusLama !== Pemesanan::STATUS_SELESAI) {
             // Kurangi stok semua suku cadang yang dipakai pada pemesanan.
             $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
-            $this->catatLogPenguranganStokSelesai($pemesanan, $ringkasanPerubahanStok, $aktor);
+            $this->jalankanEfekSampingAman('audit pengurangan stok pemesanan selesai', function () use ($pemesanan, $ringkasanPerubahanStok, $aktor) {
+                $this->catatLogPenguranganStokSelesai($pemesanan, $ringkasanPerubahanStok, $aktor);
+            });
 
             // Jika stok melewati batas minimal, beri notifikasi ke pemilik.
             foreach ($ringkasanPerubahanStok as $perubahanStok) {
-                $this->layananNotifikasi->notifikasiPemilikStokMenipis(
-                    $perubahanStok['suku_cadang'],
-                    $perubahanStok['stok_sebelum']
-                );
+                $this->jalankanEfekSampingAman('notifikasi stok menipis setelah pemesanan selesai', function () use ($perubahanStok) {
+                    $this->layananNotifikasi->notifikasiPemilikStokMenipis(
+                        $perubahanStok['suku_cadang'],
+                        $perubahanStok['stok_sebelum']
+                    );
+                });
             }
 
             // Update tanggal servis terakhir/berikutnya pada Vespa pelanggan.
@@ -490,19 +499,42 @@ class AdminPemesananController extends Controller
             }
 
             // Beri notifikasi servis selesai ke pelanggan/admin.
-            $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
+            $this->jalankanEfekSampingAman('notifikasi pemesanan selesai', function () use ($pemesanan) {
+                $this->layananNotifikasi->notifikasiPemesananSelesai($pemesanan);
+            });
 
         } elseif ($statusBaru === Pemesanan::STATUS_DIKONFIRMASI && $statusLama === Pemesanan::STATUS_MENUNGGU) {
             // Notifikasi saat pemesanan dikonfirmasi.
-            $this->layananNotifikasi->notifikasiPemesananDikonfirmasi($pemesanan);
+            $this->jalankanEfekSampingAman('notifikasi pemesanan dikonfirmasi', function () use ($pemesanan) {
+                $this->layananNotifikasi->notifikasiPemesananDikonfirmasi($pemesanan);
+            });
             
         } elseif ($statusBaru === Pemesanan::STATUS_DIKERJAKAN && in_array($statusLama, [Pemesanan::STATUS_DIKONFIRMASI, Pemesanan::STATUS_MENUNGGU])) {
             // Notifikasi saat servis mulai dikerjakan.
-            $this->layananNotifikasi->notifikasiPemesananDiproses($pemesanan);
+            $this->jalankanEfekSampingAman('notifikasi pemesanan diproses', function () use ($pemesanan) {
+                $this->layananNotifikasi->notifikasiPemesananDiproses($pemesanan);
+            });
             
         } elseif ($statusBaru === Pemesanan::STATUS_BATAL) {
             // Notifikasi saat pemesanan dibatalkan.
-            $this->layananNotifikasi->notifikasiPemesananDibatalkan($pemesanan);
+            $this->jalankanEfekSampingAman('notifikasi pemesanan dibatalkan', function () use ($pemesanan) {
+                $this->layananNotifikasi->notifikasiPemesananDibatalkan($pemesanan);
+            });
+        }
+    }
+
+    /**
+     * Efek samping seperti notifikasi, audit, dan broadcast tidak boleh
+     * menggagalkan update status utama jika konfigurasi eksternal bermasalah.
+     */
+    private function jalankanEfekSampingAman(string $namaAksi, callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            Log::error("Gagal menjalankan {$namaAksi}: " . $e->getMessage(), [
+                'exception' => get_class($e),
+            ]);
         }
     }
 
