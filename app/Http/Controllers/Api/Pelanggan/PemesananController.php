@@ -25,6 +25,7 @@ use App\Http\Resources\PemesananResource;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class PemesananController extends Controller
 {
@@ -271,12 +272,33 @@ class PemesananController extends Controller
             $tanggal = $request->query('date');
             if (!$tanggal) return $this->successResponse('Slot kosong', []);
 
+            $semuaSlot = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+            $timezone = config('app.timezone');
+            $tanggalDipilih = Carbon::parse($tanggal, $timezone)->startOfDay();
+            $hariIni = Carbon::now($timezone)->startOfDay();
+            $slotTidakTersedia = [];
+
+            if ($tanggalDipilih->isFriday()) {
+                return $this->successResponse('Bengkel libur setiap hari Jumat', $semuaSlot);
+            }
+
+            if ($tanggalDipilih->lessThan($hariIni)) {
+                return $this->successResponse('Tanggal sudah lewat', $semuaSlot);
+            }
+
+            if ($tanggalDipilih->equalTo($hariIni)) {
+                $sekarang = Carbon::now($timezone);
+                $slotTidakTersedia = array_values(array_filter($semuaSlot, function (string $slot) use ($tanggal, $timezone, $sekarang) {
+                    return Carbon::createFromFormat('Y-m-d H:i', $tanggal . ' ' . $slot, $timezone)
+                        ->lessThanOrEqualTo($sekarang);
+                }));
+            }
+
             // Kapasitas slot berdasarkan jumlah mekanik.
             $jumlahMekanik = User::mekanik()->count();
 
             // Jika tidak ada mekanik, semua slot dianggap penuh.
             if ($jumlahMekanik === 0) {
-                $semuaSlot = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
                 return $this->successResponse('Tidak ada mekanik tersedia', $semuaSlot);
             }
 
@@ -304,12 +326,11 @@ class PemesananController extends Controller
             $totalTerpakai = $mekanikSibuk + $pemesananTanpaMekanik;
 
             if ($totalTerpakai >= $jumlahMekanik) {
-                $semuaSlot = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
                 return $this->successResponse('Daftar slot terpesan', $semuaSlot);
             }
 
-            // Jika kapasitas masih tersedia, frontend menerima array kosong.
-            return $this->successResponse('Daftar slot terpesan', []);
+            // Jika kapasitas masih tersedia, frontend menerima slot yang sudah lewat saja.
+            return $this->successResponse('Daftar slot terpesan', $slotTidakTersedia);
 
         } catch (\Exception $e) {
             Log::error('Pelanggan/PemesananController@cekSlot: ' . $e->getMessage());

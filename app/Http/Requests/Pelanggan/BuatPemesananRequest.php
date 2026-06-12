@@ -44,6 +44,12 @@ class BuatPemesananRequest extends FormRequest {
             }
 
             try {
+                $tanggalPemesanan = Carbon::parse($tanggal, config('app.timezone'));
+                if ($tanggalPemesanan->isFriday()) {
+                    $validator->errors()->add('tanggal_pemesanan', 'Bengkel libur setiap hari Jumat. Silakan pilih tanggal lain.');
+                    return;
+                }
+
                 $waktuPemesanan = Carbon::createFromFormat(
                     'Y-m-d H:i',
                     $tanggal . ' ' . substr((string) $jam, 0, 5),
