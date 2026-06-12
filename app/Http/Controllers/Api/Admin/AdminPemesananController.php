@@ -416,11 +416,12 @@ class AdminPemesananController extends Controller
         try {
             // id_mekanik sudah divalidasi ada/tidak oleh TugaskanMekanikRequest.
             $idMekanik = $request->validated('id_mekanik');
+            $mekanik = null;
 
             if ($idMekanik) {
                 // Pastikan user yang dipilih benar-benar mekanik.
                 $mekanik = User::find($idMekanik);
-                if ($mekanik->role !== 'mekanik') {
+                if (strtolower((string) $mekanik->role) !== 'mekanik') {
                     return $this->errorResponse('Pengguna yang dipilih bukan mekanik', 400);
                 }
             }
@@ -432,36 +433,43 @@ class AdminPemesananController extends Controller
             $pemesanan->id_mekanik = $idMekanik;
             $pemesanan->save();
 
-            $this->logAktivitas->catat(
-                $request->user(),
-                'edit',
-                'pemesanan',
-                'pemesanan',
-                $pemesanan->id,
-                $pemesanan->kode_pemesanan,
-                $idMekanik
-                    ? "Menugaskan {$mekanik->nama} ke pemesanan #{$pemesanan->kode_pemesanan}"
-                    : "Menghapus mekanik dari pemesanan #{$pemesanan->kode_pemesanan}",
-                [
-                    'id_mekanik' => $idMekanikLama,
-                    'nama_mekanik' => $mekanikLama?->nama,
-                ],
-                [
-                    'id_mekanik' => $pemesanan->id_mekanik,
-                    'nama_mekanik' => isset($mekanik) ? $mekanik->nama : null,
-                ]
-            );
+            $this->jalankanEfekSampingAman('audit penugasan mekanik', function () use ($request, $pemesanan, $idMekanik, $idMekanikLama, $mekanikLama, $mekanik) {
+                $this->logAktivitas->catat(
+                    $request->user(),
+                    'edit',
+                    'pemesanan',
+                    'pemesanan',
+                    $pemesanan->id,
+                    $pemesanan->kode_pemesanan,
+                    $idMekanik
+                        ? "Menugaskan {$mekanik->nama} ke pemesanan #{$pemesanan->kode_pemesanan}"
+                        : "Menghapus mekanik dari pemesanan #{$pemesanan->kode_pemesanan}",
+                    [
+                        'id_mekanik' => $idMekanikLama,
+                        'nama_mekanik' => $mekanikLama?->nama,
+                    ],
+                    [
+                        'id_mekanik' => $pemesanan->id_mekanik,
+                        'nama_mekanik' => isset($mekanik) ? $mekanik->nama : null,
+                    ]
+                );
+            });
 
             // Beri notifikasi ke mekanik jika ada mekanik yang ditugaskan.
             if ($idMekanik) {
-                $this->layananNotifikasi->notifikasiMekanikDitugaskan($pemesanan, $mekanik);
+                $this->jalankanEfekSampingAman('notifikasi mekanik ditugaskan', function () use ($pemesanan, $mekanik) {
+                    $this->layananNotifikasi->notifikasiMekanikDitugaskan($pemesanan, $mekanik);
+                });
             }
+
             // Broadcast perubahan assign mekanik.
-            broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'mechanic_assigned'));
+            $this->jalankanEfekSampingAman('broadcast penugasan mekanik', function () use ($pemesanan) {
+                broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'mechanic_assigned'));
+            });
 
             return $this->successResponse(
                 'Mekanik berhasil ditugaskan', 
-                new PemesananResource($pemesanan->load('mekanik'))
+                new PemesananResource($pemesanan->fresh('mekanik'))
             );
 
         } catch (\Exception $e) {
