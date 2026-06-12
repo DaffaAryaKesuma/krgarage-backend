@@ -4,6 +4,7 @@
 use Illuminate\Http\Request;
 // Route adalah facade Laravel untuk mendefinisikan endpoint API.
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 // Controller publik/auth.
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LayananController;
@@ -28,6 +29,20 @@ Route::post('/daftar', [AuthController::class, 'daftar']);
 Route::post('/masuk', [AuthController::class, 'masuk']);
 // Layanan publik ditampilkan di landing page dan form pemesanan.
 Route::get('/layanan', [LayananController::class, 'index']);
+
+// File upload publik dibaca langsung dari disk Laravel public agar tidak bergantung symlink /public/storage.
+Route::get('/storage/{path}', function (string $path) {
+    $normalizedPath = ltrim($path, '/');
+
+    abort_if(
+        $normalizedPath === '' ||
+        str_contains($normalizedPath, '..') ||
+        !Storage::disk('public')->exists($normalizedPath),
+        404
+    );
+
+    return response()->file(Storage::disk('public')->path($normalizedPath));
+})->where('path', '.*');
 
 // Rute untuk semua pengguna terautentikasi, role apa pun.
 Route::middleware('auth:sanctum')->group(function () {
