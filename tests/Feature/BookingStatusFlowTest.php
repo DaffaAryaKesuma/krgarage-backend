@@ -20,7 +20,7 @@ class BookingStatusFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_move_booking_to_in_progress_then_mechanic_completes_and_stock_only_deducted_once(): void
+    public function test_admin_can_move_booking_to_in_progress_then_mechanic_completes_without_deducting_stock_again(): void
     {
         $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_PENDING);
 
@@ -49,7 +49,7 @@ class BookingStatusFlowTest extends TestCase
 
         $sukuCadang->refresh();
         $pemesanan->refresh();
-        $this->assertSame($stokAwal - 1, $sukuCadang->jumlah_stok);
+        $this->assertSame($stokAwal, $sukuCadang->jumlah_stok);
         $this->assertNotNull($pemesanan->completed_at);
         $this->assertNull($pemesanan->paid_at);
 
@@ -61,7 +61,7 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonPath('message', 'Status pemesanan yang dibatalkan atau selesai tidak bisa diubah.');
 
         $sukuCadang->refresh();
-        $this->assertSame($stokAwal - 1, $sukuCadang->jumlah_stok);
+        $this->assertSame($stokAwal, $sukuCadang->jumlah_stok);
     }
 
     public function test_mechanic_cannot_update_status_to_non_completed_values(): void
@@ -160,23 +160,50 @@ class BookingStatusFlowTest extends TestCase
         $this->assertDatabaseHas('item_pemesanan', ['id' => $itemPemesanan->id]);
     }
 
-    public function test_owner_receives_low_stock_notification_when_completion_crosses_minimum_threshold(): void
+    public function test_mechanic_adds_sparepart_stock_is_deducted_then_delete_returns_stock(): void
     {
-        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_IN_PROGRESS);
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_IN_PROGRESS, 0);
+
+        $mekanik = $skenario['mekanik'];
+        $pemesanan = $skenario['pemesanan'];
+        $sukuCadang = $skenario['suku_cadang'];
+        $stokAwal = $sukuCadang->jumlah_stok;
+
+        Sanctum::actingAs($mekanik);
+        $this->postJson("/api/mekanik/pemesanan/{$pemesanan->id}/tambah-suku-cadang", [
+            'id_suku_cadang' => $sukuCadang->id,
+            'jumlah' => 2,
+        ])->assertCreated();
+
+        $sukuCadang->refresh();
+        $this->assertSame($stokAwal - 2, $sukuCadang->jumlah_stok);
+
+        $itemPemesanan = BookingItem::where('id_pemesanan', $pemesanan->id)
+            ->where('id_suku_cadang', $sukuCadang->id)
+            ->firstOrFail();
+
+        $this->deleteJson("/api/mekanik/pemesanan/{$pemesanan->id}/item/{$itemPemesanan->id}")
+            ->assertOk();
+
+        $sukuCadang->refresh();
+        $this->assertSame($stokAwal, $sukuCadang->jumlah_stok);
+        $this->assertDatabaseMissing('item_pemesanan', ['id' => $itemPemesanan->id]);
+    }
+
+    public function test_owner_receives_low_stock_notification_when_sparepart_addition_crosses_minimum_threshold(): void
+    {
+        $skenario = $this->siapkanSkenarioPemesanan(Booking::STATUS_IN_PROGRESS, 0);
 
         $owner = $this->buatPengguna('pemilik');
         $mekanik = $skenario['mekanik'];
         $pemesanan = $skenario['pemesanan'];
         $sukuCadang = $skenario['suku_cadang'];
-        $itemPemesanan = $skenario['item_pemesanan'];
-
-        $itemPemesanan->update(['jumlah' => 9]);
 
         Sanctum::actingAs($mekanik);
-        $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
-            'status' => Booking::STATUS_COMPLETED,
-            'catatan_mekanik' => 'Pekerjaan selesai dan stok terpakai besar.',
-        ])->assertOk();
+        $this->postJson("/api/mekanik/pemesanan/{$pemesanan->id}/tambah-suku-cadang", [
+            'id_suku_cadang' => $sukuCadang->id,
+            'jumlah' => 9,
+        ])->assertCreated();
 
         $sukuCadang->refresh();
         $this->assertSame(1, $sukuCadang->jumlah_stok);
@@ -270,9 +297,9 @@ class BookingStatusFlowTest extends TestCase
     }
 
     /**
-     * @return array{admin: User, mekanik: User, pemesanan: Booking, suku_cadang: Sparepart, item_pemesanan: BookingItem}
+     * @return array{admin: User, mekanik: User, pemesanan: Booking, suku_cadang: Sparepart, item_pemesanan: ?BookingItem}
      */
-    private function siapkanSkenarioPemesanan(string $statusAwal): array
+    private function siapkanSkenarioPemesanan(string $statusAwal, int $jumlahItemAwal = 1): array
     {
         $admin = $this->buatPengguna('admin');
         $mekanik = $this->buatPengguna('mekanik');
@@ -307,12 +334,19 @@ class BookingStatusFlowTest extends TestCase
             'deskripsi' => 'Data dummy untuk feature test.',
         ]);
 
-        $itemPemesanan = BookingItem::create([
-            'id_pemesanan' => $pemesanan->id,
-            'id_suku_cadang' => $sukuCadang->id,
-            'jumlah' => 1,
-            'harga_saat_ini' => $sukuCadang->harga_jual,
-        ]);
+        $itemPemesanan = null;
+
+        if ($jumlahItemAwal > 0) {
+            $itemPemesanan = BookingItem::create([
+                'id_pemesanan' => $pemesanan->id,
+                'id_suku_cadang' => $sukuCadang->id,
+                'jumlah' => $jumlahItemAwal,
+                'harga_saat_ini' => $sukuCadang->harga_jual,
+            ]);
+
+            $sukuCadang->jumlah_stok -= $jumlahItemAwal;
+            $sukuCadang->save();
+        }
 
         return [
             'admin' => $admin,

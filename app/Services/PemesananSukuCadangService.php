@@ -8,6 +8,7 @@ use App\Models\ItemPemesanan;
 use App\Models\SukuCadang;
 // Collection dipakai sebagai tipe return daftar suku cadang.
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Service ini menyatukan logika suku cadang pemesanan agar tidak duplikat di controller admin/mekanik.
@@ -27,53 +28,65 @@ class PemesananSukuCadangService
      */
     public function tambahSukuCadang(Pemesanan $pemesanan, int $idSukuCadang, int $jumlah): array
     {
-        // Cari suku cadang, throw 404 jika tidak ditemukan.
-        $sukuCadang = SukuCadang::findOrFail($idSukuCadang);
+        return DB::transaction(function () use ($pemesanan, $idSukuCadang, $jumlah) {
+            // Lock baris stok agar dua pengguna tidak mengambil stok yang sama bersamaan.
+            $sukuCadang = SukuCadang::whereKey($idSukuCadang)->lockForUpdate()->firstOrFail();
 
-        // Cek apakah stok mencukupi.
-        if ($sukuCadang->jumlah_stok < $jumlah) {
-            return [
-                'success' => false,
-                'message' => 'Stok suku cadang tidak mencukupi. Stok tersedia: ' . $sukuCadang->jumlah_stok
-            ];
-        }
-
-        // Cek apakah suku cadang sudah pernah ditambahkan ke pemesanan ini.
-        $itemSudahAda = ItemPemesanan::where('id_pemesanan', $pemesanan->id)
-            ->where('id_suku_cadang', $sukuCadang->id)
-            ->first();
-
-        if ($itemSudahAda) {
-            // Perbarui jumlah jika item sudah ada.
-            $itemSudahAda->jumlah += $jumlah;
-            $itemSudahAda->save();
-            $itemPemesanan = $itemSudahAda;
-        } else {
-            $dataItemBaru = [
-                'id_pemesanan'  => $pemesanan->id,
-                'id_suku_cadang' => $sukuCadang->id,
-                'jumlah'        => $jumlah,
-                'harga_saat_ini' => $sukuCadang->harga_jual,
-            ];
-
-            if (Schema::hasColumn('item_pemesanan', 'nama_suku_cadang_saat_ini')) {
-                $dataItemBaru['nama_suku_cadang_saat_ini'] = $sukuCadang->nama_suku_cadang;
+            if ($sukuCadang->jumlah_stok < $jumlah) {
+                return [
+                    'success' => false,
+                    'message' => 'Stok suku cadang tidak mencukupi. Stok tersedia: ' . $sukuCadang->jumlah_stok
+                ];
             }
 
-            // Buat item pemesanan baru.
-            $itemPemesanan = ItemPemesanan::create($dataItemBaru);
-        }
+            $stokSebelum = (int) $sukuCadang->jumlah_stok;
+            $stokSesudah = $stokSebelum - $jumlah;
 
-        // Catatan: stok baru dikurangi saat pemesanan berubah menjadi Selesai.
+            // Cek apakah suku cadang sudah pernah ditambahkan ke pemesanan ini.
+            $itemSudahAda = ItemPemesanan::where('id_pemesanan', $pemesanan->id)
+                ->where('id_suku_cadang', $sukuCadang->id)
+                ->lockForUpdate()
+                ->first();
 
-        // Hitung ulang total harga layanan + suku cadang.
-        $pemesanan->recalculateTotalHarga();
+            if ($itemSudahAda) {
+                // Perbarui jumlah jika item sudah ada.
+                $itemSudahAda->jumlah += $jumlah;
+                $itemSudahAda->save();
+                $itemPemesanan = $itemSudahAda;
+            } else {
+                $dataItemBaru = [
+                    'id_pemesanan'  => $pemesanan->id,
+                    'id_suku_cadang' => $sukuCadang->id,
+                    'jumlah'        => $jumlah,
+                    'harga_saat_ini' => $sukuCadang->harga_jual,
+                ];
 
-        return [
-            'success' => true,
-            'message' => 'Suku cadang berhasil ditambahkan',
-            'data'    => $itemPemesanan->load('sukuCadang'),
-        ];
+                if (Schema::hasColumn('item_pemesanan', 'nama_suku_cadang_saat_ini')) {
+                    $dataItemBaru['nama_suku_cadang_saat_ini'] = $sukuCadang->nama_suku_cadang;
+                }
+
+                // Buat item pemesanan baru.
+                $itemPemesanan = ItemPemesanan::create($dataItemBaru);
+            }
+
+            // Stok langsung dikurangi saat suku cadang dialokasikan ke pemesanan.
+            $sukuCadang->jumlah_stok = $stokSesudah;
+            $sukuCadang->save();
+
+            // Hitung ulang total harga layanan + suku cadang.
+            $pemesanan->recalculateTotalHarga();
+
+            return [
+                'success' => true,
+                'message' => 'Suku cadang berhasil ditambahkan',
+                'data'    => $itemPemesanan->load('sukuCadang'),
+                'perubahan_stok' => [
+                    'suku_cadang' => $sukuCadang->fresh(),
+                    'stok_sebelum' => $stokSebelum,
+                    'stok_sesudah' => $stokSesudah,
+                ],
+            ];
+        });
     }
 
     /**
@@ -101,16 +114,39 @@ class PemesananSukuCadangService
             ];
         }
 
-        // Hapus item suku cadang dari pemesanan.
-        $itemPemesanan->delete();
+        return DB::transaction(function () use ($pemesanan, $itemPemesanan) {
+            $perubahanStok = null;
 
-        // Hitung ulang total harga setelah item dihapus.
-        $pemesanan->recalculateTotalHarga();
+            if ($itemPemesanan->id_suku_cadang) {
+                $sukuCadang = SukuCadang::whereKey($itemPemesanan->id_suku_cadang)->lockForUpdate()->first();
 
-        return [
-            'success' => true,
-            'message' => 'Suku cadang berhasil dihapus',
-        ];
+                if ($sukuCadang) {
+                    $stokSebelum = (int) $sukuCadang->jumlah_stok;
+                    $stokSesudah = $stokSebelum + (int) $itemPemesanan->jumlah;
+
+                    $sukuCadang->jumlah_stok = $stokSesudah;
+                    $sukuCadang->save();
+
+                    $perubahanStok = [
+                        'suku_cadang' => $sukuCadang->fresh(),
+                        'stok_sebelum' => $stokSebelum,
+                        'stok_sesudah' => $stokSesudah,
+                    ];
+                }
+            }
+
+            // Hapus item suku cadang dari pemesanan.
+            $itemPemesanan->delete();
+
+            // Hitung ulang total harga setelah item dihapus.
+            $pemesanan->recalculateTotalHarga();
+
+            return [
+                'success' => true,
+                'message' => 'Suku cadang berhasil dihapus',
+                'perubahan_stok' => $perubahanStok,
+            ];
+        });
     }
 
     /**
@@ -125,7 +161,7 @@ class PemesananSukuCadangService
     }
 
     /**
-     * Kurangi stok suku cadang saat pemesanan selesai.
+     * @deprecated Stok sekarang dikurangi saat suku cadang ditambahkan ke pemesanan.
      */
     public function kurangiStokSukuCadang(Pemesanan $pemesanan): array
     {

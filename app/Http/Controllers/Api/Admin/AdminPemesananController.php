@@ -188,7 +188,7 @@ class AdminPemesananController extends Controller
                 );
             });
 
-            // Jalankan efek samping status: notifikasi, pengurangan stok, update tanggal servis.
+            // Jalankan efek samping status: notifikasi dan update tanggal servis.
             $this->handleStatusTransitionEffects($pemesanan, $statusLama, $statusBaru, $request->user());
 
             // Broadcast realtime agar frontend role lain ikut refresh.
@@ -294,6 +294,7 @@ class AdminPemesananController extends Controller
             }
 
             $itemPemesanan = $hasil['data'];
+            $perubahanStok = $hasil['perubahan_stok'] ?? null;
             $this->logAktivitas->catat(
                 $request->user(),
                 'tambah',
@@ -311,6 +312,22 @@ class AdminPemesananController extends Controller
                     'harga_saat_ini' => $itemPemesanan->harga_saat_ini,
                 ]
             );
+
+            if ($perubahanStok) {
+                $this->catatLogPerubahanStokPemesanan(
+                    $pemesanan,
+                    [$perubahanStok],
+                    $request->user(),
+                    'dipakai'
+                );
+
+                $this->jalankanEfekSampingAman('notifikasi stok menipis setelah tambah suku cadang', function () use ($perubahanStok) {
+                    $this->layananNotifikasi->notifikasiPemilikStokMenipis(
+                        $perubahanStok['suku_cadang'],
+                        $perubahanStok['stok_sebelum']
+                    );
+                });
+            }
 
             // Broadcast agar total/detail pemesanan di frontend ikut berubah.
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_added'));
@@ -347,6 +364,7 @@ class AdminPemesananController extends Controller
                 return $this->errorResponse($hasil['message'], $hasil['status_code'] ?? 400);
             }
 
+            $perubahanStok = $hasil['perubahan_stok'] ?? null;
             $this->logAktivitas->catat(
                 $request->user(),
                 'hapus',
@@ -358,6 +376,15 @@ class AdminPemesananController extends Controller
                 $dataItemSebelum,
                 null
             );
+
+            if ($perubahanStok) {
+                $this->catatLogPerubahanStokPemesanan(
+                    $pemesanan,
+                    [$perubahanStok],
+                    $request->user(),
+                    'dikembalikan'
+                );
+            }
 
             // Broadcast setelah item berhasil dihapus.
             broadcast(PemesananBerubah::dariPemesanan($pemesanan->fresh(), 'item_deleted'));
@@ -398,8 +425,34 @@ class AdminPemesananController extends Controller
             // Ambil user dengan role mekanik untuk dropdown assign.
             $daftarMekanik = User::mekanik()
                 ->select('id', 'nama', 'email')
+                ->with(['pemesananDitangani' => function ($query) {
+                    $query
+                        ->select('id', 'id_mekanik', 'kode_pemesanan', 'tanggal_pemesanan', 'jam_pemesanan', 'status')
+                        ->whereIn('status', $this->statusPemesananMekanikAktif())
+                        ->orderBy('tanggal_pemesanan')
+                        ->orderBy('jam_pemesanan');
+                }])
                 ->orderBy('nama')
-                ->get();
+                ->get()
+                ->map(function ($mekanik) {
+                    $tugasAktif = $mekanik->pemesananDitangani->first();
+
+                    return [
+                        'id' => $mekanik->id,
+                        'nama' => $mekanik->nama,
+                        'email' => $mekanik->email,
+                        'tersedia' => !$tugasAktif,
+                        'sedang_bertugas' => (bool) $tugasAktif,
+                        'tugas_aktif' => $tugasAktif ? [
+                            'id' => $tugasAktif->id,
+                            'kode_pemesanan' => $tugasAktif->kode_pemesanan,
+                            'tanggal_pemesanan' => $tugasAktif->tanggal_pemesanan,
+                            'jam_pemesanan' => $tugasAktif->jam_pemesanan,
+                            'status' => $tugasAktif->status,
+                        ] : null,
+                    ];
+                })
+                ->values();
                 
             return $this->successResponse('Daftar mekanik berhasil dimuat', $daftarMekanik);
         } catch (\Exception $e) {
@@ -423,6 +476,18 @@ class AdminPemesananController extends Controller
                 $mekanik = User::find($idMekanik);
                 if (strtolower((string) $mekanik->role) !== 'mekanik') {
                     return $this->errorResponse('Pengguna yang dipilih bukan mekanik', 400);
+                }
+
+                $tugasAktif = Pemesanan::where('id_mekanik', $idMekanik)
+                    ->where('id', '!=', $pemesanan->id)
+                    ->whereIn('status', $this->statusPemesananMekanikAktif())
+                    ->first();
+
+                if ($tugasAktif) {
+                    return $this->errorResponse(
+                        'Mekanik ini masih memiliki penugasan aktif. Selesaikan atau batalkan pekerjaan sebelumnya terlebih dahulu.',
+                        422
+                    );
                 }
             }
 
@@ -479,28 +544,24 @@ class AdminPemesananController extends Controller
     }
 
     /**
+     * Status ini masih mengunci mekanik dari penugasan baru.
+     */
+    private function statusPemesananMekanikAktif(): array
+    {
+        return [
+            Pemesanan::STATUS_MENUNGGU,
+            Pemesanan::STATUS_DIKONFIRMASI,
+            Pemesanan::STATUS_DIKERJAKAN,
+        ];
+    }
+
+    /**
      * Ekstraksi logic transisi status untuk Clean Code.
      */
     private function handleStatusTransitionEffects(Pemesanan $pemesanan, $statusLama, $statusBaru, ?User $aktor)
     {
-        // Saat status menjadi selesai, stok dikurangi dan pelanggan diberi notifikasi.
+        // Saat status menjadi selesai, pekerjaan difinalisasi dan pelanggan diberi notifikasi.
         if ($statusBaru === Pemesanan::STATUS_SELESAI && $statusLama !== Pemesanan::STATUS_SELESAI) {
-            // Kurangi stok semua suku cadang yang dipakai pada pemesanan.
-            $ringkasanPerubahanStok = $this->layananSukuCadang->kurangiStokSukuCadang($pemesanan);
-            $this->jalankanEfekSampingAman('audit pengurangan stok pemesanan selesai', function () use ($pemesanan, $ringkasanPerubahanStok, $aktor) {
-                $this->catatLogPenguranganStokSelesai($pemesanan, $ringkasanPerubahanStok, $aktor);
-            });
-
-            // Jika stok melewati batas minimal, beri notifikasi ke pemilik.
-            foreach ($ringkasanPerubahanStok as $perubahanStok) {
-                $this->jalankanEfekSampingAman('notifikasi stok menipis setelah pemesanan selesai', function () use ($perubahanStok) {
-                    $this->layananNotifikasi->notifikasiPemilikStokMenipis(
-                        $perubahanStok['suku_cadang'],
-                        $perubahanStok['stok_sebelum']
-                    );
-                });
-            }
-
             // Update tanggal servis terakhir/berikutnya pada Vespa pelanggan.
             if ($pemesanan->vespa) {
                 $pemesanan->vespa->perbaruiTanggalServisDariPemesanan($pemesanan);
@@ -547,11 +608,11 @@ class AdminPemesananController extends Controller
     }
 
     /**
-     * Catat audit stok suku cadang yang berkurang saat pemesanan selesai.
+     * Catat audit stok suku cadang yang berubah karena alokasi item pemesanan.
      *
      * @param array<int, array{suku_cadang: mixed, stok_sebelum: int, stok_sesudah: int}> $ringkasanPerubahanStok
      */
-    private function catatLogPenguranganStokSelesai(Pemesanan $pemesanan, array $ringkasanPerubahanStok, ?User $aktor): void
+    private function catatLogPerubahanStokPemesanan(Pemesanan $pemesanan, array $ringkasanPerubahanStok, ?User $aktor, string $aksi): void
     {
         foreach ($ringkasanPerubahanStok as $perubahanStok) {
             $sukuCadang = $perubahanStok['suku_cadang'];
@@ -571,7 +632,7 @@ class AdminPemesananController extends Controller
                 'suku_cadang',
                 $sukuCadang->id ?? null,
                 $namaSukuCadang,
-                "Booking #{$pemesanan->kode_pemesanan} selesai, stok {$namaSukuCadang} berkurang dari {$stokSebelum} menjadi {$stokSesudah}.",
+                "Booking #{$pemesanan->kode_pemesanan}, stok {$namaSukuCadang} {$aksi} dari {$stokSebelum} menjadi {$stokSesudah}.",
                 ['jumlah_stok' => $stokSebelum],
                 ['jumlah_stok' => $stokSesudah]
             );
