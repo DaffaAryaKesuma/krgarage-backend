@@ -128,6 +128,17 @@ class AuthController extends Controller
     }
 
     /**
+     * Mengambil identitas pengguna langsung dari token aktif.
+     */
+    public function profil(Request $request)
+    {
+        return $this->successResponse(
+            'Profil pengguna berhasil dimuat.',
+            new UserResource($request->user())
+        );
+    }
+
+    /**
      * Memperbarui informasi profil pengguna.
      */
     public function perbaruiProfil(Request $request)

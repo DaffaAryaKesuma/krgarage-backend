@@ -48,6 +48,9 @@ Route::get('/storage/{path}', function (string $path) {
 Route::middleware('auth:sanctum')->group(function () {
     // Logout menghapus token aktif milik user.
     Route::post('/keluar', [AuthController::class, 'keluar']);
+
+    // Sumber identitas tepercaya untuk verifikasi sesi dan role frontend.
+    Route::get('/profil', [AuthController::class, 'profil']);
     
     // Ping endpoint untuk update last_seen user.
     Route::post('/ping', function (Request $request) {

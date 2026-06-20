@@ -102,17 +102,27 @@ class PemilikController extends Controller
             $start = \Carbon\Carbon::parse($startDate)->startOfDay();
             $end   = \Carbon\Carbon::parse($endDate)->endOfDay();
 
+            if ($start->gt($end)) {
+                return $this->errorResponse('Tanggal awal tidak boleh melebihi tanggal akhir', 422);
+            }
+
+            // Ambil seluruh total pendapatan per tanggal dalam satu query.
+            // Sebelumnya query dijalankan satu kali untuk setiap hari sehingga
+            // rentang panjang seperti 2025-2026 dapat terkena timeout.
+            $pendapatanPerTanggal = Pemesanan::sudahDibayar()
+                ->whereBetween('paid_at', [$start, $end])
+                ->selectRaw('DATE(paid_at) as tanggal, SUM(total_harga) as total')
+                ->groupByRaw('DATE(paid_at)')
+                ->pluck('total', 'tanggal');
+
             $labels = [];
             $values = [];
 
             $current = $start->copy();
             while ($current <= $end) {
-                $pendapatan = Pemesanan::sudahDibayar()
-                    ->whereDate('paid_at', $current->toDateString())
-                    ->sum('total_harga');
-
+                $tanggal = $current->toDateString();
                 $labels[] = $current->format('d M');
-                $values[] = (float) $pendapatan;
+                $values[] = (float) ($pendapatanPerTanggal[$tanggal] ?? 0);
                 $current->addDay();
             }
 
