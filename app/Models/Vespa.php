@@ -92,8 +92,12 @@ class Vespa extends Model
             return null;
         }
 
-        // false membuat hasil bisa negatif jika jadwal servis sudah lewat.
-        return now()->diffInDays($this->tanggal_servis_selanjutnya, false);
+        // Bandingkan tanggal kalender agar H-1 tetap menghasilkan 1 meskipun
+        // waktu saat ini sudah malam dan tersisa kurang dari 24 jam.
+        return now()->startOfDay()->diffInDays(
+            $this->tanggal_servis_selanjutnya->copy()->startOfDay(),
+            false
+        );
     }
 
     /**
