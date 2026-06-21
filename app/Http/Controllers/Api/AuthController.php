@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 // Log dipakai mencatat error server.
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class AuthController extends Controller
 {
@@ -36,8 +37,8 @@ class AuthController extends Controller
         try {
             // Ambil data yang sudah lolos validasi RegisterRequest.
             $data = $request->validated();
-            // Nomor telepon dibersihkan agar format tersimpan konsisten.
-            $nomorBersih = preg_replace('/[^0-9]/', '', $data['no_telepon']);
+            // RegisterRequest sudah menormalkan nomor +628 menjadi format 08.
+            $nomorBersih = $data['no_telepon'];
 
             // Cek apakah nomor telepon sudah terdaftar.
             $penggunaSudahAda = User::where('no_telepon', $nomorBersih)->first();
@@ -46,14 +47,20 @@ class AuthController extends Controller
             }
 
             // Buat akun baru dengan role default pelanggan.
-            $pengguna = User::create([
+            $dataPengguna = [
                 'nama'       => $data['nama'],
-                // Jika email kosong, sistem membuat email dummy dari nomor telepon.
-                'email'      => $data['email'] ?? $nomorBersih . '@krgarage.com',
+                'email'      => $data['email'],
                 'no_telepon' => $nomorBersih,
                 'password'   => Hash::make($data['password']),
                 'role'       => 'pelanggan',
-            ]);
+            ];
+
+            // Kompatibilitas untuk database pengujian SQLite yang masih menyimpan kolom legacy.
+            if (Schema::hasColumn((new User())->getTable(), 'name')) {
+                $dataPengguna['name'] = $data['nama'];
+            }
+
+            $pengguna = User::forceCreate($dataPengguna);
 
             // Token Sanctum dipakai frontend untuk request berikutnya.
             $token = $pengguna->createToken('auth_token')->plainTextToken;

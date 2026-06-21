@@ -10,8 +10,10 @@ class TambahVespaRequest extends FormRequest {
     // Normalisasi plat nomor sebelum validasi unique dijalankan.
     protected function prepareForValidation(): void {
         if ($this->has('plat_nomor')) {
+            $platNomor = preg_replace('/\s+/', ' ', trim((string) $this->input('plat_nomor')));
+
             $this->merge([
-                'plat_nomor' => strtoupper(trim((string) $this->input('plat_nomor'))),
+                'plat_nomor' => strtoupper($platNomor),
             ]);
         }
     }
@@ -19,12 +21,23 @@ class TambahVespaRequest extends FormRequest {
     // rules() memastikan data Vespa baru lengkap sebelum disimpan.
     public function rules(): array {
         return [
-            // Model Vespa wajib diisi, misalnya PX 150 atau Excel.
-            'model'          => 'required|string|max:255',
-            // Tahun produksi wajib berupa angka.
-            'tahun_produksi' => 'required|integer',
-            // Plat nomor wajib unik agar satu plat tidak terdaftar ganda.
-            'plat_nomor'     => 'required|string|max:20|unique:vespa',
+            // Aturan ini disamakan dengan validasi form Vespa frontend.
+            'model'          => ['required', 'string', 'min:2', 'max:50'],
+            'tahun_produksi' => ['required', 'integer', 'min:1946', 'max:' . (now()->year + 1)],
+            'plat_nomor'     => ['required', 'string', 'min:3', 'max:15', 'regex:/^[A-Z0-9 ]+$/', 'unique:vespa'],
+        ];
+    }
+
+    public function messages(): array {
+        return [
+            'model.min'              => 'Model Vespa minimal 2 karakter.',
+            'model.max'              => 'Model Vespa maksimal 50 karakter.',
+            'tahun_produksi.min'     => 'Tahun produksi Vespa minimal 1946.',
+            'tahun_produksi.max'     => 'Tahun produksi Vespa maksimal ' . (now()->year + 1) . '.',
+            'plat_nomor.min'         => 'Plat nomor minimal 3 karakter.',
+            'plat_nomor.max'         => 'Plat nomor maksimal 15 karakter.',
+            'plat_nomor.regex'       => 'Plat nomor hanya boleh mengandung huruf, angka, dan spasi.',
+            'plat_nomor.unique'      => 'Plat nomor sudah terdaftar.',
         ];
     }
 }
