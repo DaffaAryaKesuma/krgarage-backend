@@ -13,6 +13,7 @@ use App\Traits\ApiResponseTrait;
 // Form request validasi register dan login.
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 // Resource untuk membentuk response data user.
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
@@ -148,31 +149,23 @@ class AuthController extends Controller
     /**
      * Memperbarui informasi profil pengguna.
      */
-    public function perbaruiProfil(Request $request)
+    public function perbaruiProfil(UpdateProfileRequest $request)
     {
         try {
             // User aktif berasal dari token Sanctum.
             $pengguna = $request->user();
-            
-            // Validasi langsung di controller karena form ini sederhana.
-            $request->validate([
-                'nama'       => 'required|string|max:255',
-                // Email harus unik kecuali milik user sendiri.
-                'email'      => 'required|email|unique:pengguna,email,' . $pengguna->id,
-                'no_telepon' => 'required|string|max:20',
-            ]);
-
-            // Nomor telepon disimpan hanya angka.
-            $nomorBersih = preg_replace('/[^0-9]/', '', $request->no_telepon);
+            $data = $request->validated();
 
             // Update data profil user.
             $pengguna->update([
-                'nama'       => $request->nama,
-                'email'      => $request->email,
-                'no_telepon' => $nomorBersih,
+                'nama'       => $data['nama'],
+                'email'      => $data['email'],
+                'no_telepon' => $data['no_telepon'],
             ]);
 
             return $this->successResponse('Profil berhasil diperbarui!', new UserResource($pengguna));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('AuthController@perbaruiProfil: ' . $e->getMessage());
             return $this->errorResponse('Gagal memperbarui profil.', 500, $e);

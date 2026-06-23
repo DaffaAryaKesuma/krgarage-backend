@@ -10,8 +10,8 @@ class TugaskanMekanikRequest extends FormRequest {
     // rules() memastikan id mekanik yang dipilih ada di tabel pengguna.
     public function rules(): array {
         return [
-            // nullable berarti admin juga bisa mengosongkan mekanik jika fitur controller mengizinkan.
-            'id_mekanik' => 'nullable|exists:pengguna,id',
+            // Pemesanan boleh belum memiliki mekanik sebelum ditugaskan, tetapi aksi penugasan wajib memilih mekanik.
+            'id_mekanik' => 'required|exists:pengguna,id',
         ];
     }
 }

@@ -24,12 +24,12 @@ class UpdateSukuCadangRequest extends FormRequest
     {
         return [
             // sometimes berarti field boleh tidak dikirim, tetapi jika dikirim harus valid.
-            'nama_suku_cadang'   => 'sometimes|string|max:255',
-            'id_kategori'        => 'sometimes|exists:kategori_suku_cadang,id',
-            'jumlah_stok'        => 'sometimes|integer|min:0',
-            'harga_beli'         => 'sometimes|numeric|min:0',
-            'harga_jual'         => 'sometimes|numeric|min:0',
-            'batas_minimal_stok' => 'sometimes|integer|min:0',
+            'nama_suku_cadang'   => 'sometimes|required|string|max:255',
+            'id_kategori'        => 'sometimes|required|exists:kategori_suku_cadang,id',
+            'jumlah_stok'        => 'sometimes|required|integer|min:0',
+            'harga_beli'         => 'sometimes|required|numeric|min:0',
+            'harga_jual'         => 'sometimes|required|numeric|min:0',
+            'batas_minimal_stok' => 'sometimes|required|integer|min:0',
             // Deskripsi boleh kosong/null.
             'deskripsi'          => 'nullable|string',
         ];

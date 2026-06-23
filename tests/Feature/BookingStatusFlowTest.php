@@ -77,13 +77,13 @@ class BookingStatusFlowTest extends TestCase
             'status' => Booking::STATUS_CONFIRMED,
         ])
             ->assertStatus(422)
-            ->assertJsonPath('errors.status.0', 'The selected status is invalid.');
+            ->assertJsonPath('errors.status.0', 'Status pemesanan yang dipilih tidak valid.');
 
         $this->putJson("/api/mekanik/pemesanan/{$pemesanan->id}/status", [
             'status' => Booking::STATUS_IN_PROGRESS,
         ])
             ->assertStatus(422)
-            ->assertJsonPath('errors.status.0', 'The selected status is invalid.');
+            ->assertJsonPath('errors.status.0', 'Status pemesanan yang dipilih tidak valid.');
     }
 
     public function test_mechanic_can_only_complete_booking_when_status_is_in_progress(): void
@@ -114,7 +114,7 @@ class BookingStatusFlowTest extends TestCase
             'status' => Booking::STATUS_COMPLETED,
         ])
             ->assertStatus(422)
-            ->assertJsonPath('errors.catatan_mekanik.0', 'The catatan mekanik field is required.');
+            ->assertJsonPath('errors.catatan_mekanik.0', 'Catatan mekanik wajib diisi.');
     }
 
     public function test_admin_can_cancel_booking_and_mechanic_cannot_modify_cancelled_booking(): void

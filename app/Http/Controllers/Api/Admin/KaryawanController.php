@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreKaryawanRequest;
+use App\Http\Requests\Admin\UpdateKaryawanRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Schema;
 
 class KaryawanController extends Controller
 {
@@ -29,23 +30,23 @@ class KaryawanController extends Controller
     /**
      * Menambahkan karyawan baru.
      */
-    public function store(Request $request)
+    public function store(StoreKaryawanRequest $request)
     {
-        $validated = $request->validate([
-            'nama' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:pengguna',
-            'no_telepon' => 'nullable|string|max:20',
-            'password' => 'required|string|min:6',
-            'role' => ['required', Rule::in(['admin', 'mekanik'])],
-        ]);
+        $validated = $request->validated();
 
-        $karyawan = User::create([
+        $dataKaryawan = [
             'nama' => $validated['nama'],
             'email' => $validated['email'],
             'no_telepon' => $validated['no_telepon'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-        ]);
+        ];
+
+        if (Schema::hasColumn((new User())->getTable(), 'name')) {
+            $dataKaryawan['name'] = $validated['nama'];
+        }
+
+        $karyawan = User::forceCreate($dataKaryawan);
 
         return response()->json([
             'status' => 'success',
@@ -57,17 +58,10 @@ class KaryawanController extends Controller
     /**
      * Mengupdate data karyawan.
      */
-    public function update(Request $request, $id)
+    public function update(UpdateKaryawanRequest $request, $id)
     {
         $karyawan = User::whereIn('role', ['admin', 'mekanik'])->findOrFail($id);
-
-        $validated = $request->validate([
-            'nama' => 'required|string|max:255',
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('pengguna')->ignore($karyawan->id)],
-            'no_telepon' => 'nullable|string|max:20',
-            'password' => 'nullable|string|min:6',
-            'role' => ['required', Rule::in(['admin', 'mekanik'])],
-        ]);
+        $validated = $request->validated();
 
         $karyawan->nama = $validated['nama'];
         $karyawan->email = $validated['email'];
