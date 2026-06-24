@@ -31,8 +31,19 @@ class TambahStokRequest extends FormRequest
             'update_harga_beli' => 'sometimes|boolean',
             // Catatan opsional untuk keterangan restock.
             'catatan' => 'nullable|string|max:1000',
-            // Foto struk pembelian opsional sebagai bukti restock.
-            'foto_struk' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            // Foto struk wajib sebagai bukti pengeluaran restock.
+            // HEIC/HEIF didukung agar foto langsung dari ponsel tetap dapat diunggah.
+            'foto_struk' => 'required|file|mimes:jpeg,jpg,png,webp,heic,heif|max:10240',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'foto_struk.required' => 'Foto struk pembelian wajib diunggah.',
+            'foto_struk.file' => 'Foto struk pembelian harus berupa file.',
+            'foto_struk.mimes' => 'Format foto struk harus JPG, JPEG, PNG, WebP, HEIC, atau HEIF.',
+            'foto_struk.max' => 'Ukuran foto struk maksimal 10MB.',
         ];
     }
 }
