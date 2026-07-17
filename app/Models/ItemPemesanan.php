@@ -32,6 +32,7 @@ class ItemPemesanan extends Model
      */
     public function sukuCadang()
     {
-        return $this->belongsTo(SukuCadang::class, 'id_suku_cadang');
+        // Riwayat transaksi tetap dapat membaca master suku cadang yang sudah dihapus dari daftar aktif.
+        return $this->belongsTo(SukuCadang::class, 'id_suku_cadang')->withTrashed();
     }
 }

@@ -66,11 +66,8 @@ class AdminLayananController extends Controller
      */
     public function destroy(Layanan $service)
     {
-        // Hapus file gambar fisik saat data dihapus
-        if ($service->gambar) {
-            Storage::disk('public')->delete($service->gambar);
-        }
-
+        // Soft delete: sembunyikan dari daftar aktif tanpa memutus riwayat transaksi.
+        // Gambar juga dipertahankan agar data arsip tetap lengkap dan dapat dipulihkan.
         $service->delete();
 
         return response()->json(['message' => 'Layanan berhasil dihapus']);

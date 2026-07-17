@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Layanan extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'layanan';
 
@@ -37,7 +38,7 @@ class Layanan extends Model
     public function pemesanan(): BelongsToMany
     {
         return $this->belongsToMany(Pemesanan::class, 'layanan_pemesanan', 'id_layanan', 'id_pemesanan')
-                    ->withPivot('harga_saat_pesan')
+                    ->withPivot('nama_layanan_saat_ini', 'harga_saat_pesan')
                     ->withTimestamps();
     }
 }

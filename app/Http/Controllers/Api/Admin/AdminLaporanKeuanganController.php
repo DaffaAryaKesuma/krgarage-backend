@@ -39,16 +39,21 @@ class AdminLaporanKeuanganController extends Controller
 
         $totalPemesanan = $daftarPemesanan->count();
 
-        // Agregasi data per bulan untuk grafik
+        // Agregasi data per bulan untuk grafik. Ekspresi dibedakan agar laporan
+        // konsisten di MySQL produksi dan SQLite pengujian.
+        $ekspresiBulan = DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%m', paid_at) AS INTEGER)"
+            : 'MONTH(paid_at)';
+
         $dataBulanan = DB::table('pemesanan')
             ->select(
-                DB::raw('MONTH(paid_at) as bulan'),
+                DB::raw("{$ekspresiBulan} as bulan"),
                 DB::raw('COUNT(*) as total_pemesanan'),
                 DB::raw('SUM(COALESCE(total_harga, (SELECT SUM(harga_saat_pesan) FROM layanan_pemesanan WHERE layanan_pemesanan.id_pemesanan = pemesanan.id))) as pendapatan')
             )
             ->where('status_pembayaran', Pemesanan::PAYMENT_STATUS_PAID)
             ->whereYear('paid_at', $tahun)
-            ->groupBy(DB::raw('MONTH(paid_at)'))
+            ->groupBy(DB::raw($ekspresiBulan))
             ->orderBy('bulan')
             ->get();
 

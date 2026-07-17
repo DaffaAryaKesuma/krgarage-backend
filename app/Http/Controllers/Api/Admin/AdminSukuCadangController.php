@@ -191,7 +191,7 @@ class AdminSukuCadangController extends Controller
             $targetId = $sukuCadang->id;
             $targetLabel = $sukuCadang->nama_suku_cadang;
 
-            // Hapus paksa suku cadang, biarkan DB set id_suku_cadang = null pada pesanan lama (krn foreign key ON DELETE SET NULL)
+            // Soft delete: keluarkan dari inventaris aktif tanpa memutus item dan laporan transaksi lama.
             $sukuCadang->delete();
             $this->logAktivitas->catat(
                 request()->user(),

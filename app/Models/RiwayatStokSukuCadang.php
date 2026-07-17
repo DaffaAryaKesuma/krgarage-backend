@@ -48,7 +48,8 @@ class RiwayatStokSukuCadang extends Model
 
     public function sukuCadang(): BelongsTo
     {
-        return $this->belongsTo(SukuCadang::class, 'id_suku_cadang');
+        // Pengeluaran restok lama tetap terhubung walaupun suku cadang tidak lagi aktif.
+        return $this->belongsTo(SukuCadang::class, 'id_suku_cadang')->withTrashed();
     }
 
     public function admin(): BelongsTo

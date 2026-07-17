@@ -109,7 +109,8 @@ class Pemesanan extends Model
     {
         // harga_saat_pesan disimpan di pivot agar harga lama tidak berubah saat master layanan berubah.
         return $this->belongsToMany(Layanan::class, 'layanan_pemesanan', 'id_pemesanan', 'id_layanan')
-                    ->withPivot('harga_saat_pesan')
+                    ->withTrashed()
+                    ->withPivot('nama_layanan_saat_ini', 'harga_saat_pesan')
                     ->withTimestamps();
     }
 
@@ -153,6 +154,7 @@ class Pemesanan extends Model
     {
         // jumlah dan harga_saat_ini berada di tabel pivot item_pemesanan.
         return $this->belongsToMany(SukuCadang::class, 'item_pemesanan', 'id_pemesanan', 'id_suku_cadang')
+                    ->withTrashed()
                     ->withPivot('jumlah', 'harga_saat_ini')
                     ->withTimestamps();
     }
